@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/icons/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0D7377">
+    <title>Resumen de Conteos - Farmacia Bolaños</title>
+    <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/menu.css">
+    <link rel="stylesheet" href="assets/css/resumen.css">
+</head>
+<body>
+    
+    <div class="dashboard-wrapper">
+        
+        <div class="conteo-topbar">
+            <div class="topbar-row">
+                <button class="btn-back" id="btn-back" aria-label="Volver" onclick="window.location.href='dashboard.html'">←</button>
+                
+                <div class="topbar-title">
+                    <span class="topbar-title-main">Resumen</span>
+                    <span class="topbar-title-sub">Conteos por Usuario</span>
+                </div>
+                
+                <button class="hamburger-btn" id="hamburger-btn" aria-label="Abrir menú">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- MENÚ DESPLEGABLE -->
+        <div class="dropdown-menu" id="dropdown-menu">
+            <div class="dropdown-user">
+                <div class="dropdown-user-avatar">👤</div>
+                <div>
+                    <div class="dropdown-user-name" id="dropdown-usuario-nombre">-</div>
+                    <div class="dropdown-user-role">En sesión</div>
+                </div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <a href="dashboard.html" class="dropdown-item">
+                <span class="dropdown-icon">📋</span> Conteos
+            </a>
+            <a href="resumen.html" class="dropdown-item">
+                <span class="dropdown-icon">📊</span> Resumen de Conteos
+            </a>
+            <a href="reportes.html" class="dropdown-item">
+                <span class="dropdown-icon">🧾</span> Generar Reportes
+            </a>
+            <div class="dropdown-divider"></div>
+            <a href="#" class="dropdown-item dropdown-logout" id="btn-logout">
+                <span class="dropdown-icon">🚪</span> Cerrar Sesión
+            </a>
+        </div>
+        <div class="dropdown-overlay" id="dropdown-overlay"></div>
+        
+        <!-- CONTENIDO -->
+        <main class="resumen-main">
+            
+            <div class="resumen-container">
+                
+                <!-- FILTRO POR SUCURSAL -->
+                <div class="resumen-filter-tabs">
+                    <button class="resumen-filter-tab active" data-sucursal="mercado" id="tab-mercado">
+                        📦 Mercado
+                    </button>
+                    <button class="resumen-filter-tab" data-sucursal="farmacia" id="tab-farmacia">
+                        💊 Farmacia
+                    </button>
+                </div>
+                
+                <!-- CONTENEDOR DE DATOS - se llena vía JS, empieza con skeleton de carga -->
+                <div id="resumen-data-container">
+                    <div class="resumen-skeleton">
+                        <div class="skeleton-block skeleton-total"></div>
+                        <div class="skeleton-block skeleton-row"></div>
+                        <div class="skeleton-block skeleton-row"></div>
+                        <div class="skeleton-block skeleton-row"></div>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </main>
+        
+    </div>
+    
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/sheets-api.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/dashboard.js"></script>
+    <script src="assets/js/resumen.js"></script>
+    
+</body>
+</html>

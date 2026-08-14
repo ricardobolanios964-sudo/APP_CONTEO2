@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/icons/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0D7377">
+    <title>Login - Farmacia Bolaños</title>
+    <link rel="stylesheet" href="assets/css/login.css">
+</head>
+<body class="login-body">
+    
+    <div class="login-container">
+        <div class="login-card">
+            
+            <!-- MARCA -->
+            <div class="login-brand-content">
+                <img src="assets/img/logo.png" alt="Farmacia Bolaños" class="logo-img">
+                <div class="brand-divider"></div>
+                <h1 class="brand-name">Farmacia Bolaños</h1>
+                <p class="subtitle">Sistema de Conteo de Inventario</p>
+            </div>
+            
+            <!-- FORMULARIO -->
+            <form id="login-form" class="login-form">
+                
+                <div class="form-group">
+                    <label for="usuario" class="form-label">Usuario</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">👤</span>
+                        <input 
+                            type="text" 
+                            id="usuario" 
+                            name="usuario" 
+                            class="form-input"
+                            placeholder="Ingrese su usuario"
+                            required
+                            autocomplete="username"
+                        >
+                    </div>
+                    <small class="error-message" id="error-usuario"></small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="contraseña" class="form-label">Contraseña</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">🔒</span>
+                        <input 
+                            type="password" 
+                            id="contraseña" 
+                            name="contraseña" 
+                            class="form-input"
+                            placeholder="Ingrese su contraseña"
+                            required
+                            autocomplete="current-password"
+                        >
+                        <button type="button" class="toggle-password" id="toggle-password">
+                            👁️
+                        </button>
+                    </div>
+                    <small class="error-message" id="error-contraseña"></small>
+                </div>
+                
+                <div class="remember-me">
+                    <input type="checkbox" id="remember" name="remember" value="on">
+                    <label for="remember">Recuérdame en este dispositivo</label>
+                </div>
+                
+                <div class="alert alert-error" id="alert-error" style="display:none;">
+                    <span id="error-text"></span>
+                </div>
+                
+                <button type="submit" class="btn-login" id="btn-login">
+                    <span class="btn-text">INICIAR SESIÓN</span>
+                    <span class="btn-loader" id="btn-loader" style="display:none;">
+                        <span class="spinner"></span>
+                    </span>
+                </button>
+                
+            </form>
+            
+            <!-- FORMULARIO: CREAR CONTRASEÑA -->
+            <form id="cambio-password-form" class="login-form" style="display:none;">
+                
+                <div class="primer-ingreso-banner">
+                    <span class="primer-ingreso-icon">👋</span>
+                    <div>
+                        <strong>¡Es tu primer ingreso!</strong>
+                        <p>Crea tu contraseña para continuar</p>
+                    </div>
+                </div>
+                
+                <input type="hidden" id="cambio-usuario" name="usuario">
+                
+                <div class="form-group">
+                    <label for="nueva-password" class="form-label">Nueva contraseña</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">🔒</span>
+                        <input 
+                            type="password" 
+                            id="nueva-password" 
+                            name="nueva_password" 
+                            class="form-input"
+                            placeholder="Mínimo 4 caracteres"
+                            required
+                        >
+                    </div>
+                    <small class="error-message" id="error-nueva-password"></small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="repetir-password" class="form-label">Repetir contraseña</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">🔒</span>
+                        <input 
+                            type="password" 
+                            id="repetir-password" 
+                            name="repetir_password" 
+                            class="form-input"
+                            placeholder="Escríbela de nuevo"
+                            required
+                        >
+                    </div>
+                    <small class="error-message" id="error-repetir-password"></small>
+                </div>
+                
+                <div class="alert alert-error" id="alert-error-cambio" style="display:none;">
+                    <span id="error-text-cambio"></span>
+                </div>
+                
+                <button type="submit" class="btn-login" id="btn-cambiar-password">
+                    <span class="btn-text">CREAR CONTRASEÑA E INGRESAR</span>
+                    <span class="btn-loader" id="btn-loader-cambio" style="display:none;">
+                        <span class="spinner"></span>
+                    </span>
+                </button>
+                
+                <button type="button" class="btn-volver-login" id="btn-volver-login">← Volver al inicio de sesión</button>
+                
+            </form>
+            
+            <div class="login-footer">
+                <p class="version">v1.0.0 | 2026</p>
+                <p class="security-badge">🔒 Conexión segura</p>
+            </div>
+            
+        </div>
+    </div>
+    
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/sheets-api.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/login.js"></script>
+    
+</body>
+</html>

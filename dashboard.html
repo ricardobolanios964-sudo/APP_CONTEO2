@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/icons/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0D7377">
+    <title>Dashboard - Farmacia Bolaños</title>
+    <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/menu.css">
+</head>
+<body>
+    
+    <div class="dashboard-wrapper">
+        
+        <div class="conteo-topbar">
+            <div class="topbar-row">
+                <img src="assets/img/logo.png" alt="Farmacia Bolaños" class="topbar-logo">
+                
+                <div class="topbar-title">
+                    <span class="topbar-title-main">Farmacia Bolaños</span>
+                    <span class="topbar-title-sub">Sistema de Conteo</span>
+                </div>
+                
+                <button class="hamburger-btn" id="hamburger-btn" aria-label="Abrir menú">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- MENÚ DESPLEGABLE -->
+        <div class="dropdown-menu" id="dropdown-menu">
+            <div class="dropdown-user">
+                <div class="dropdown-user-avatar">👤</div>
+                <div>
+                    <div class="dropdown-user-name" id="dropdown-usuario-nombre">-</div>
+                    <div class="dropdown-user-role">En sesión</div>
+                </div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <a href="dashboard.html" class="dropdown-item">
+                <span class="dropdown-icon">📋</span> Conteos
+            </a>
+            <a href="resumen.html" class="dropdown-item">
+                <span class="dropdown-icon">📊</span> Resumen de Conteos
+            </a>
+            <a href="reportes.html" class="dropdown-item">
+                <span class="dropdown-icon">🧾</span> Generar Reportes
+            </a>
+            <div class="dropdown-divider"></div>
+            <a href="#" class="dropdown-item dropdown-logout" id="btn-logout">
+                <span class="dropdown-icon">🚪</span> Cerrar Sesión
+            </a>
+        </div>
+        <div class="dropdown-overlay" id="dropdown-overlay"></div>
+        
+        <!-- CONTENIDO PRINCIPAL -->
+        <main class="dashboard-main">
+            
+            <div class="dashboard-container">
+                
+                <div class="section-header">
+                    <h2>Selecciona el tipo de conteo</h2>
+                    <p class="section-description">Elige dónde realizarás el inventario</p>
+                </div>
+                
+                <div class="selection-cards">
+                    
+                    <div class="selection-card card-farmacia" id="card-farmacia">
+                        <div class="card-icon">💊</div>
+                        <h3>FARMACIA</h3>
+                        <p class="card-description">Conteo de medicamentos y productos farmacéuticos</p>
+                        <button class="btn-select" data-tipo="farmacia">
+                            Iniciar Conteo
+                        </button>
+                    </div>
+                    
+                    <div class="selection-card card-mercado" id="card-mercado">
+                        <div class="card-icon">📦</div>
+                        <h3>MERCADO</h3>
+                        <p class="card-description">Conteo de productos e inventario</p>
+                        <button class="btn-select" data-tipo="mercado">
+                            Iniciar Conteo
+                        </button>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+        </main>
+        
+        <footer class="app-footer">
+            <p>© 2026 Farmacia Bolaños | v1.0.0</p>
+        </footer>
+        
+    </div>
+    
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/sheets-api.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/dashboard.js"></script>
+    
+</body>
+</html>

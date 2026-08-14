@@ -1,0 +1,35 @@
+{
+  "name": "Farmacia Bolaños - Inventario",
+  "short_name": "Bolaños",
+  "description": "Sistema de Conteo de Inventario - Farmacia Bolaños",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FAFCFB",
+  "theme_color": "#0D7377",
+  "icons": [
+    {
+      "src": "assets/img/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/img/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/img/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/img/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

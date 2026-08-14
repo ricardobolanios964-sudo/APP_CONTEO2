@@ -1,0 +1,1238 @@
+/* ================================================
+   ESTILOS ESPECÍFICOS - SECCIÓN CONTEO
+   FARMACIA BOLAÑOS - Colores: Azul (#0D7377) Verde (#A4D65E)
+   ================================================ */
+
+:root {
+    --primary: #0D7377;      /* Azul Bolaños */
+    --primary-dark: #0A5A67; /* Azul oscuro */
+    --primary-light: #14919B; /* Teal claro, para acentos y detalles */
+    --secondary: #A4D65E;    /* Verde Bolaños */
+}
+
+/* NOTA: .conteo-topbar, .topbar-row, .topbar-title y compañía
+   viven ahora en main.css, porque se comparten con el Dashboard
+   para que ambos headers se vean exactamente iguales. */
+
+/* BUSCADOR - banda propia, con fondo de color, sticky justo debajo del header
+   (el offset "top" se calcula por JS según la altura real del header,
+   así nunca se solapan sin importar el tamaño de pantalla) */
+
+.search-sticky-band {
+    position: sticky;
+    top: var(--header-h, 64px);
+    z-index: 90;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-md);
+    box-shadow: 0 4px 16px rgba(15, 76, 92, 0.18);
+}
+
+.conteos-count-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: var(--spacing-md);
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 500;
+}
+
+.conteos-count-row strong {
+    color: white;
+    font-weight: 800;
+}
+
+/* SEARCH BOX - fluido, se adapta a cualquier ancho de pantalla */
+
+.search-box {
+    background: white;
+    border-radius: 50px;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--spacing-lg);
+    height: 48px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+    position: relative;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.search-box:focus-within {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+    transform: scale(1.01);
+}
+
+.search-box-icon {
+    font-size: 1.3rem;
+    margin-right: var(--spacing-md);
+    flex-shrink: 0;
+    opacity: 0.5;
+}
+
+.search-box-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 1.05rem;
+    font-family: inherit;
+    color: var(--dark);
+    min-width: 0;
+}
+
+.search-box-input::placeholder {
+    color: #B0B0B0;
+}
+
+.btn-clear-search {
+    background: #F3F4F6;
+    border: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    color: #6B7280;
+    font-size: 0.9rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ================================================
+   BOTÓN FLOTANTE - CÓDIGO DE BARRAS
+   ================================================ */
+
+.fab-barcode {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
+    border: none;
+    box-shadow: 0 6px 20px rgba(15, 76, 92, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 150;
+    transition: all 0.25s ease;
+}
+
+.fab-barcode:hover {
+    transform: scale(1.08);
+    box-shadow: 0 8px 26px rgba(15, 76, 92, 0.45);
+}
+
+.fab-barcode:active {
+    transform: scale(0.95);
+}
+
+.fab-barcode-icon {
+    font-size: 1.6rem;
+    color: white;
+}
+
+/* ================================================
+   MODAL DE ESCANEO CON CÁMARA (móvil)
+   ================================================ */
+
+.scanner-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+}
+
+.scanner-modal-header {
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: var(--spacing-md) var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
+    font-size: 1rem;
+    z-index: 10;
+}
+
+.scanner-close-btn {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+
+.scanner-viewport {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #000;
+}
+
+.scanner-viewport video,
+.scanner-viewport canvas {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* Línea guía de escaneo */
+.scanner-viewport::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: var(--primary-light);
+    box-shadow: 0 0 10px var(--primary-light);
+    transform: translateY(-50%);
+    z-index: 5;
+    animation: scan-line 2s ease-in-out infinite;
+}
+
+@keyframes scan-line {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+.scanner-hint {
+    background: rgba(0, 0, 0, 0.85);
+    color: #E5E7EB;
+    text-align: center;
+    padding: var(--spacing-md);
+    font-size: 0.9rem;
+}
+
+.scanner-error {
+    background: #7F1D1D;
+    color: white;
+    text-align: center;
+    padding: var(--spacing-md);
+    font-size: 0.9rem;
+}
+
+/* ================================================
+   MODAL DE CONTEO - Diseño profesional
+   ================================================ */
+
+.conteo-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 500;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.conteo-modal-overlay.open {
+    opacity: 1;
+}
+
+.conteo-modal {
+    background: white;
+    width: 100%;
+    max-width: 480px;
+    max-height: 92vh;
+    border-radius: 24px 24px 0 0;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.25);
+}
+
+.conteo-modal-overlay.open .conteo-modal {
+    transform: translateY(0);
+}
+
+.conteo-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--gray-light);
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--dark);
+    flex-shrink: 0;
+}
+
+.conteo-modal-body {
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.conteo-modal-footer {
+    display: flex;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    border-top: 1px solid var(--gray-light);
+    flex-shrink: 0;
+    background: white;
+}
+
+.conteo-modal-footer .btn-secondary,
+.conteo-modal-footer .btn-primary {
+    flex: 1;
+}
+
+/* TARJETA DE INFO DEL PRODUCTO (solo lectura) */
+
+.producto-info-card {
+    background: linear-gradient(135deg, #F0FBF9 0%, #E8F5E9 100%);
+    border: 1px solid #D1EDE8;
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+}
+
+.producto-info-marca {
+    font-size: 0.72rem;
+    color: var(--primary);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.producto-info-nombre {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: var(--spacing-md);
+    line-height: 1.3;
+}
+
+.producto-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-sm);
+}
+
+.producto-info-item {
+    background: white;
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.producto-info-item.destacado {
+    grid-column: 1 / -1;
+    background: var(--primary);
+}
+
+.producto-info-item.destacado .producto-info-label,
+.producto-info-item.destacado .producto-info-value {
+    color: white;
+}
+
+.producto-info-label {
+    font-size: 0.7rem;
+    color: #9CA3AF;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.producto-info-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--dark);
+}
+
+/* CAMPOS DEL FORMULARIO */
+
+.campo-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.campo-fila {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+}
+
+.campo-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--dark);
+}
+
+.requerido {
+    color: #EF4444;
+}
+
+.opcional {
+    color: #9CA3AF;
+    font-weight: 400;
+    font-size: 0.8rem;
+}
+
+.form-input-month,
+.form-textarea {
+    padding: var(--spacing-md);
+    border: 2px solid var(--gray-light);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    font-family: inherit;
+    outline: none;
+    transition: all 0.2s ease;
+    background: white;
+    width: 100%;
+}
+
+.form-input-month:focus,
+.form-textarea:focus {
+    border-color: var(--primary);
+    background: #F7FCFB;
+}
+
+.form-textarea {
+    resize: vertical;
+}
+
+/* INPUT DE DINERO */
+
+.input-money {
+    display: flex;
+    align-items: center;
+    border: 2px solid var(--gray-light);
+    border-radius: var(--radius-md);
+    background: white;
+    transition: all 0.2s ease;
+    overflow: hidden;
+}
+
+.input-money:focus-within {
+    border-color: var(--primary);
+    background: #F7FCFB;
+}
+
+.input-money-symbol {
+    padding: 0 0 0 var(--spacing-md);
+    color: #9CA3AF;
+    font-weight: 700;
+}
+
+.form-input-money {
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: var(--spacing-md);
+    padding-left: var(--spacing-sm);
+    font-size: 1rem;
+    font-family: inherit;
+    width: 100%;
+    min-width: 0;
+}
+
+/* MODAL DE ESTATUS AUTOMÁTICO (ya no se usa en el form, se deja por si acaso) */
+
+.estatus-badge {
+    background: #ECFDF5;
+    color: #065F46;
+    border: 1px solid #A7F3D0;
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+/* ================================================
+   MODAL "ENVIANDO..." - animación de órbita
+   ================================================ */
+
+.modal-sending {
+    z-index: 3000;
+}
+
+.modal-sending-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--spacing-2xl) var(--spacing-xl);
+}
+
+.sending-orbit {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin-bottom: var(--spacing-lg);
+}
+
+.sending-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2rem;
+    animation: sending-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes sending-pulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.15); }
+}
+
+.sending-orbit-dot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--primary);
+    margin-top: -5px;
+    margin-left: -5px;
+    animation: sending-orbit 0.9s linear infinite;
+    transform-origin: 5px 5px;
+}
+
+/* Mismo color teal en los 3 puntos, solo cambia la opacidad
+   (antes mezclaba verde, ahora todo coherente con la marca) */
+.sending-orbit-dot:nth-child(1) {
+    animation-delay: 0s;
+    background: var(--primary);
+    opacity: 1;
+}
+.sending-orbit-dot:nth-child(2) {
+    animation-delay: -0.3s;
+    background: var(--primary);
+    opacity: 0.6;
+}
+.sending-orbit-dot:nth-child(3) {
+    animation-delay: -0.6s;
+    background: var(--primary);
+    opacity: 0.3;
+}
+
+@keyframes sending-orbit {
+    from { transform: rotate(0deg) translateX(38px) rotate(0deg); }
+    to   { transform: rotate(360deg) translateX(38px) rotate(-360deg); }
+}
+
+.sending-title {
+    color: var(--dark);
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+}
+
+.sending-subtitle {
+    color: #9CA3AF;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+/* ================================================
+   MODAL DE ÉXITO - check que se dibuja
+   ================================================ */
+
+.success-check-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.success-check-svg {
+    width: 72px;
+    height: 72px;
+}
+
+.success-check-circle {
+    stroke: var(--secondary);
+    stroke-width: 3;
+    stroke-dasharray: 151;
+    stroke-dashoffset: 151;
+    animation: success-circle-draw 0.5s ease-out forwards;
+}
+
+.success-check-mark {
+    stroke: var(--secondary);
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 40;
+    stroke-dashoffset: 40;
+    animation: success-check-draw 0.35s ease-out 0.45s forwards;
+}
+
+@keyframes success-circle-draw {
+    to { stroke-dashoffset: 0; }
+}
+
+@keyframes success-check-draw {
+    to { stroke-dashoffset: 0; }
+}
+
+/* ================================================
+   SELECTOR TIPO RUEDA - VENCIMIENTO (Mes → Año)
+   ================================================ */
+
+.vence-wheel-picker {
+    position: relative;
+    display: flex;
+    gap: 2px;
+    height: 132px;
+    border-radius: var(--radius-md);
+    background: #F9FAFB;
+    border: 2px solid var(--gray-light);
+    overflow: hidden;
+}
+
+.vence-wheel-picker.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.vence-wheel-highlight {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
+    background: rgba(13, 115, 119, 0.08);
+    border-top: 2px solid var(--primary);
+    border-bottom: 2px solid var(--primary);
+    pointer-events: none;
+    z-index: 2;
+}
+
+.vence-wheel-col {
+    flex: 1;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    position: relative;
+}
+
+.vence-wheel-col::-webkit-scrollbar {
+    display: none;
+}
+
+.vence-wheel-col + .vence-wheel-col {
+    border-left: 1px solid var(--gray-light);
+}
+
+.vence-wheel-pad {
+    height: 44px;
+    flex-shrink: 0;
+}
+
+.vence-wheel-item {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    scroll-snap-align: center;
+    font-size: 0.95rem;
+    color: #9CA3AF;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    user-select: none;
+}
+
+.vence-wheel-item.selected {
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+/* Fundido superior/inferior para efecto de rueda */
+.vence-wheel-col::before,
+.vence-wheel-col::after {
+    content: '';
+    position: sticky;
+    display: block;
+    height: 30px;
+    pointer-events: none;
+    z-index: 3;
+}
+
+.vence-wheel-col::before {
+    top: 0;
+    background: linear-gradient(to bottom, #F9FAFB, transparent);
+}
+
+.vence-wheel-col::after {
+    bottom: 0;
+    background: linear-gradient(to top, #F9FAFB, transparent);
+}
+
+/* CHECKBOX "NO APLICA" */
+
+.checkbox-na {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+    font-size: 0.9rem;
+    color: #4B5563;
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkbox-na input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary);
+    outline: none;
+}
+
+.checkbox-na input[type="checkbox"]:focus,
+.checkbox-na input[type="checkbox"]:focus-visible {
+    outline: none;
+    box-shadow: none;
+}
+
+/* RESPONSIVE - Desktop: modal centrado en vez de pegado abajo */
+
+@media (min-width: 640px) {
+    .conteo-modal-overlay {
+        align-items: center;
+    }
+    
+    .conteo-modal {
+        border-radius: 20px;
+        transform: translateY(20px) scale(0.97);
+        max-height: 88vh;
+    }
+    
+    .conteo-modal-overlay.open .conteo-modal {
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ================================================
+   SECCIÓN DE RESULTADOS
+   ================================================ */
+
+.results-section {
+    padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-lg);
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 2px solid var(--gray-light);
+}
+
+.results-header h3 {
+    color: var(--dark);
+    font-size: 1.1rem;
+}
+
+.results-count {
+    background: #F0F4FF;
+    color: var(--primary);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+/* LISTA DE PRODUCTOS */
+
+.products-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) 0 90px; /* espacio extra abajo para no quedar tapado por el botón flotante */
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-2xl);
+    text-align: center;
+    color: #9CA3AF;
+}
+
+.empty-icon {
+    font-size: 3rem;
+    margin-bottom: var(--spacing-md);
+    opacity: 0.5;
+}
+
+.mini-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--gray-light);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto;
+}
+
+.mini-spinner-btn {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.empty-state p {
+    font-size: 1rem;
+    color: #9CA3AF;
+}
+
+/* TARJETA DE PRODUCTO - Diseño limpio */
+
+.product-card {
+    background: white;
+    border: 1px solid var(--gray-light);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.product-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(13, 115, 119, 0.12);
+    transform: translateY(-1px);
+}
+
+.product-card.selected {
+    border-color: var(--secondary);
+    background: #F7FCEF;
+}
+
+.product-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.product-marca-small {
+    font-size: 0.72rem;
+    color: #9CA3AF;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.product-codigo {
+    font-size: 0.8rem;
+    color: var(--primary);
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.product-nombre {
+    font-size: 1rem;
+    color: var(--dark);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.product-detalles {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-xs) 0;
+}
+
+.badge {
+    display: inline-block;
+    background: #F0F4FF;
+    color: var(--primary);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.product-meta {
+    display: flex;
+    gap: var(--spacing-md);
+    font-size: 0.85rem;
+    color: #6B7280;
+    margin-top: var(--spacing-xs);
+}
+
+.product-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: var(--primary);
+    color: white;
+    border-radius: var(--radius-md);
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+/* ================================================
+   FORMULARIO DE CONTEO
+   ================================================ */
+
+.conteo-form-section {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-lg);
+    animation: slideUp 0.3s ease;
+}
+
+.form-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 2px solid var(--gray-light);
+}
+
+.form-header h3 {
+    color: var(--dark);
+    font-size: 1.2rem;
+}
+
+.conteo-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.form-section {
+    padding: var(--spacing-md);
+    background: var(--light);
+    border-radius: var(--radius-md);
+    border-left: 4px solid var(--gray-light);
+}
+
+.form-section h4 {
+    color: var(--dark);
+    font-size: 1rem;
+    margin-bottom: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.form-section.highlighted {
+    background: #FFFBEB;
+    border-left-color: var(--warning);
+    box-shadow: 0 0 0 2px #FEF3C7;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.form-row:last-child {
+    margin-bottom: 0;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.form-group label {
+    font-weight: 600;
+    color: var(--dark);
+    font-size: 0.95rem;
+}
+
+.form-input-readonly,
+.form-input-qty,
+.form-input-text,
+.form-select,
+.form-textarea {
+    padding: var(--spacing-md);
+    border: 2px solid var(--gray-light);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.form-input-readonly {
+    background: #F3F4F6;
+    cursor: not-allowed;
+    color: #6B7280;
+}
+
+.form-input-qty,
+.form-input-text {
+    background: white;
+}
+
+.form-input-qty:focus,
+.form-input-text:focus,
+.form-select:focus,
+.form-textarea:focus {
+    border-color: var(--primary);
+    background: #F7FCFB;
+}
+
+/* La cantidad física tiene su propio contenedor (cantidad-input-group),
+   así que el input en sí nunca debe cambiar de fondo al enfocar */
+#form-cantidad:focus {
+    background: transparent !important;
+    border-color: transparent !important;
+}
+
+.form-textarea {
+    resize: vertical;
+    font-size: 0.95rem;
+}
+
+.error-message {
+    color: var(--danger);
+    font-size: 0.85rem;
+}
+
+/* CANTIDAD INPUT GROUP */
+
+.cantidad-input-group {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    background: white;
+    border: 2px solid var(--gray-light);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm);
+    transition: all 0.2s ease;
+}
+
+.cantidad-input-group:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(15, 76, 92, 0.12);
+}
+
+.form-input-qty {
+    flex: 1;
+    border: none;
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+    background: transparent;
+    color: var(--dark);
+}
+
+.form-input-qty::placeholder {
+    color: #C7CDD3;
+    font-weight: 500;
+}
+
+/* AVISO: producto ya contado (informativo, no bloquea) */
+
+.ya-contado-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    background: #FFF9EB;
+    border: 1px solid #FDE9BC;
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 0.85rem;
+    color: #92600A;
+}
+
+.ya-contado-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+/* DIFERENCIA BOX */
+
+.diferencia-box {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    text-align: center;
+}
+
+.diferencia-box.ok {
+    background: #ECFDF5;
+    color: #065F46;
+    border: 1px solid #A7F3D0;
+}
+
+.diferencia-box.warning {
+    background: #FEF3C7;
+    color: #92400E;
+    border: 1px solid #FCD34D;
+}
+
+.diferencia-box.error {
+    background: #FEE2E2;
+    color: #991B1B;
+    border: 1px solid #FECACA;
+}
+
+/* ACCIONES DEL FORMULARIO */
+
+.form-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+    padding-top: var(--spacing-lg);
+    border-top: 2px solid var(--gray-light);
+}
+
+/* ================================================
+   MODAL ACTIONS
+   ================================================ */
+
+.modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-lg);
+}
+
+.modal-success .success-icon,
+.modal-error .error-icon {
+    font-size: 3rem;
+    text-align: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.modal-content h3 {
+    color: var(--dark);
+    margin-bottom: var(--spacing-md);
+    text-align: center;
+}
+
+.modal-content p {
+    color: #6B7280;
+    margin-bottom: var(--spacing-lg);
+    text-align: center;
+}
+
+/* Botón de acción única en modales (Continuar, Cerrar) - centrado
+   garantizado sin importar que el botón use display:flex por dentro */
+#btn-success-continue,
+#btn-error-close {
+    width: fit-content;
+    margin: 0 auto;
+}
+
+.success-producto {
+    display: block;
+    color: var(--dark);
+    font-size: 1.05rem;
+    margin-bottom: 4px;
+}
+
+.success-cantidad {
+    display: block;
+    color: #6B7280;
+    font-size: 0.9rem;
+}
+
+/* ================================================
+   RESPONSIVE
+   ================================================ */
+
+@media (max-width: 768px) {
+    .search-section {
+        position: relative;
+        top: auto;
+    }
+    
+    .filters-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-actions,
+    .modal-actions {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .search-section,
+    .results-section,
+    .conteo-form-section {
+        padding: var(--spacing-md);
+    }
+    
+    .product-card {
+        padding: var(--spacing-sm);
+    }
+    
+    .form-section {
+        padding: var(--spacing-md);
+    }
+    
+    .cantidad-input-group {
+        height: 44px;
+    }
+    
+    .btn-qty {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+}

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/icons/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0D7377">
+    <title>Generar Reportes - Farmacia Bolaños</title>
+    <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/menu.css">
+    <link rel="stylesheet" href="assets/css/resumen.css">
+    <link rel="stylesheet" href="assets/css/reportes.css">
+</head>
+<body>
+    
+    <div class="dashboard-wrapper">
+        
+        <div class="conteo-topbar">
+            <div class="topbar-row">
+                <button class="btn-back" id="btn-back" aria-label="Volver" onclick="window.location.href='dashboard.html'">←</button>
+                
+                <div class="topbar-title">
+                    <span class="topbar-title-main">Reportes</span>
+                    <span class="topbar-title-sub">Conteo Físico de Inventario</span>
+                </div>
+                
+                <button class="hamburger-btn" id="hamburger-btn" aria-label="Abrir menú">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- MENÚ DESPLEGABLE -->
+        <div class="dropdown-menu" id="dropdown-menu">
+            <div class="dropdown-user">
+                <div class="dropdown-user-avatar">👤</div>
+                <div>
+                    <div class="dropdown-user-name" id="dropdown-usuario-nombre">-</div>
+                    <div class="dropdown-user-role">En sesión</div>
+                </div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <a href="dashboard.html" class="dropdown-item">
+                <span class="dropdown-icon">📋</span> Conteos
+            </a>
+            <a href="resumen.html" class="dropdown-item">
+                <span class="dropdown-icon">📊</span> Resumen de Conteos
+            </a>
+            <a href="reportes.html" class="dropdown-item">
+                <span class="dropdown-icon">🧾</span> Generar Reportes
+            </a>
+            <div class="dropdown-divider"></div>
+            <a href="#" class="dropdown-item dropdown-logout" id="btn-logout">
+                <span class="dropdown-icon">🚪</span> Cerrar Sesión
+            </a>
+        </div>
+        <div class="dropdown-overlay" id="dropdown-overlay"></div>
+        
+        <!-- CONTENIDO -->
+        <main class="resumen-main">
+            
+            <div class="resumen-container">
+                
+                <div class="reportes-intro">
+                    <div class="reportes-intro-icon">🧾</div>
+                    <h2>Reporte de Conteo Físico</h2>
+                    <p>Elige la sucursal y descarga el archivo listo para importar</p>
+                </div>
+                
+                <!-- SELECCIÓN DE SUCURSAL -->
+                <div class="reportes-opciones">
+                    <button class="reporte-opcion-card active" data-sucursal="mercado" id="opcion-mercado">
+                        <span class="reporte-opcion-icon">📦</span>
+                        <span class="reporte-opcion-nombre">Mercado</span>
+                        <span class="reporte-opcion-hoja">INVENTARIO_MER</span>
+                    </button>
+                    <button class="reporte-opcion-card" data-sucursal="farmacia" id="opcion-farmacia">
+                        <span class="reporte-opcion-icon">💊</span>
+                        <span class="reporte-opcion-nombre">Farmacia</span>
+                        <span class="reporte-opcion-hoja">INVENTARIO_FAR</span>
+                    </button>
+                </div>
+                
+                <!-- FORMATO DEL REPORTE -->
+                <div class="reportes-formato-card">
+                    <p class="resumen-preview-label">El archivo incluirá estas columnas</p>
+                    <div class="reportes-columnas">
+                        <span>Codigo Producto</span>
+                        <span>Codigo Ubicacion</span>
+                        <span>Posicion</span>
+                        <span>Cantidad Contada</span>
+                        <span>Codigo Empleado Contó</span>
+                        <span>Fecha Hora Contado</span>
+                        <span># de Lote</span>
+                        <span># de Serie</span>
+                        <span>Observaciones</span>
+                    </div>
+                </div>
+                
+                <!-- BOTÓN DE DESCARGA -->
+                <button class="btn-descargar-reporte" id="btn-descargar-reporte">
+                    <span id="btn-descargar-texto">⬇️ Descargar Reporte de Mercado</span>
+                    <span class="mini-spinner-btn" id="btn-descargar-spinner" style="display:none;"></span>
+                </button>
+                
+                <p class="reportes-nota">Se descarga en formato CSV, compatible directo con Excel</p>
+                
+            </div>
+            
+        </main>
+        
+    </div>
+    
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/sheets-api.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/dashboard.js"></script>
+    <script src="assets/js/reportes.js"></script>
+    
+</body>
+</html>

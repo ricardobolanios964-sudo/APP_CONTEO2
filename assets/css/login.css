@@ -1,0 +1,474 @@
+/* ================================================
+   ESTILOS GLOBALES - LOGIN MODERNO 2026
+   ================================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    /* COLORES FARMACIA BOLAÑOS - tomados directamente del logo */
+    --primary: #0F4C5C;      /* Navy/teal oscuro (color del texto "Farmacia Bolaños") */
+    --primary-dark: #0A333F; /* Aún más oscuro, para el degradado */
+    --primary-light: #1B7F93;/* Teal medio (aro del ícono) */
+    --secondary: #A9D65C;    /* Verde lima (aro del ícono) */
+    --danger: #EF4444;
+    --warning: #F59E0B;
+    --dark: #1F2937;
+    --light: #F9FAFB;
+    --gray: #D1D5DB;
+    --gray-light: #E5E7EB;
+    --success: #10B981;
+    
+    /* ESPACIADO */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    --spacing-2xl: 48px;
+    
+    /* BORDES */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    
+    /* SOMBRAS */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    
+    /* TRANSICIONES */
+    --transition: all 0.3s ease;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.login-body {
+    background: #FAFCFB;
+    min-height: 100vh;
+    min-height: 100dvh; /* mejor en móvil con barra de navegación */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-lg) var(--spacing-md);
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* ================================================
+   CONTENEDOR PRINCIPAL - Tarjeta centrada
+   ================================================ */
+
+.login-container {
+    width: 100%;
+    max-width: 420px;
+    position: relative;
+    z-index: 1;
+}
+
+.login-card {
+    background: white;
+    border-radius: 24px;
+    box-shadow: 0 10px 40px rgba(15, 76, 92, 0.10), 0 2px 8px rgba(15, 76, 92, 0.06);
+    padding: var(--spacing-2xl) var(--spacing-xl) var(--spacing-xl);
+    width: 100%;
+    animation: scaleIn 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: translateY(24px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ================================================
+   MARCA - Logo en círculo con borde fino
+   ================================================ */
+
+.login-brand-content {
+    text-align: center;
+    margin-bottom: var(--spacing-xl);
+}
+
+.logo-img {
+    max-width: 150px;
+    width: 60%;
+    height: auto;
+    margin: 0 auto var(--spacing-lg);
+    display: block;
+    animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+
+@keyframes popIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.brand-divider {
+    width: 56px;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary-light), var(--secondary));
+    border-radius: 2px;
+    margin: 0 auto var(--spacing-md);
+}
+
+.brand-name {
+    color: var(--primary);
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+}
+
+.subtitle {
+    color: #6B7280;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-top: 4px;
+}
+
+/* ================================================
+   FORMULARIO
+   ================================================ */
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+/* GRUPO DE FORMULARIO */
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.form-label {
+    color: var(--dark);
+    font-size: 0.95rem;
+    font-weight: 600;
+    display: block;
+}
+
+/* ENVOLTORIO DE INPUT - ícono en caja de color sólido (estilo referencia) */
+
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    background: #F6F8F8;
+    border: 2px solid #EDF1F0;
+    border-radius: var(--radius-lg);
+    transition: var(--transition);
+    overflow: hidden;
+}
+
+.input-wrapper:focus-within {
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 4px rgba(15, 76, 92, 0.08);
+}
+
+.input-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    flex-shrink: 0;
+    font-size: 1.05rem;
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
+    filter: grayscale(0.3);
+}
+
+.form-input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: var(--spacing-md);
+    font-size: 1rem;
+    color: var(--dark);
+    outline: none;
+    font-family: inherit;
+}
+
+.form-input::placeholder {
+    color: #B0BAB7;
+}
+
+.form-input:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px #F6F8F8 inset !important;
+    -webkit-text-fill-color: var(--dark) !important;
+}
+
+/* PRIMER INGRESO - banner de bienvenida para crear contraseña */
+
+.primer-ingreso-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    background: #F0F7F6;
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md) var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.primer-ingreso-icon {
+    font-size: 1.8rem;
+    flex-shrink: 0;
+}
+
+.primer-ingreso-banner strong {
+    display: block;
+    color: var(--primary);
+    font-size: 0.95rem;
+    margin-bottom: 2px;
+}
+
+.primer-ingreso-banner p {
+    color: #6B7280;
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+.btn-volver-login {
+    background: none;
+    border: none;
+    color: #9CA3AF;
+    font-size: 0.85rem;
+    padding: var(--spacing-sm);
+    cursor: pointer;
+    display: block;
+    margin: var(--spacing-sm) auto 0;
+    text-align: center;
+    width: 100%;
+}
+
+.btn-volver-login:hover {
+    color: var(--primary);
+}
+
+/* Ocultar el ícono nativo de "mostrar contraseña" del navegador
+   (Edge/IE lo agrega automáticamente y duplica nuestro botón 👁️) */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+    display: none;
+}
+
+/* BOTÓN MOSTRAR CONTRASEÑA */
+
+.toggle-password {
+    background: none;
+    border: none;
+    padding: 0 var(--spacing-md);
+    font-size: 1rem;
+    cursor: pointer;
+    outline: none;
+    transition: var(--transition);
+    color: #9CA3AF;
+    flex-shrink: 0;
+}
+
+.toggle-password:hover {
+    color: var(--primary);
+}
+
+/* MENSAJES DE ERROR */
+
+.error-message {
+    color: var(--danger);
+    font-size: 0.85rem;
+    display: block;
+    min-height: 18px;
+}
+
+/* ================================================
+   RECUÉRDAME
+   ================================================ */
+
+.remember-me {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: 0.95rem;
+    color: #6B7280;
+}
+
+.remember-me input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+/* ================================================
+   ALERTAS
+   ================================================ */
+
+.alert {
+    padding: var(--spacing-md);
+    border-radius: var(--radius-lg);
+    font-size: 0.95rem;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.alert-error {
+    background: #FEE2E2;
+    color: #991B1B;
+    border: 1px solid #FECACA;
+}
+
+.alert-success {
+    background: #ECFDF5;
+    color: #065F46;
+    border: 1px solid #A7F3D0;
+}
+
+/* ================================================
+   BOTÓN LOGIN
+   ================================================ */
+
+.btn-login {
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
+    color: white;
+    border: none;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: 50px;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: 0 8px 20px rgba(15, 76, 92, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-md);
+    min-height: 52px;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-login:hover:not(:disabled) {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+}
+
+.btn-login:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.btn-login:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-text {
+    transition: var(--transition);
+}
+
+.btn-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ================================================
+   FOOTER
+   ================================================ */
+
+.login-footer {
+    text-align: center;
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--gray-light);
+}
+
+.version {
+    color: #9CA3AF;
+    font-size: 0.85rem;
+    margin-bottom: var(--spacing-sm);
+}
+
+.security-badge {
+    color: var(--secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* ================================================
+   RESPONSIVE - Pantallas más grandes
+   (El diseño base ya es una tarjeta centrada que se ve
+   bien en cualquier tamaño; solo agrandamos un poco)
+   ================================================ */
+
+@media (min-width: 640px) {
+    .login-container {
+        max-width: 440px;
+    }
+    
+    .login-card {
+        padding: var(--spacing-2xl) var(--spacing-2xl) var(--spacing-xl);
+    }
+    
+    .brand-name {
+        font-size: 1.6rem;
+    }
+}
+
+/* ================================================
+   DARK MODE (Opcional para futura implementación)
+   ================================================ */
+
+@media (prefers-color-scheme: dark) {
+    /* Se puede agregar soporte para dark mode aquí */
+}

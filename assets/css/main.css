@@ -1,0 +1,513 @@
+/* ================================================
+   ESTILOS PRINCIPALES - APP INVENTARIO
+   ================================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    /* COLORES FARMACIA BOLAÑOS */
+    --primary: #0D7377;      /* Azul Bolaños */
+    --primary-dark: #0A5A67; /* Azul oscuro */
+    --primary-light: #14919B; /* Teal claro, para acentos y detalles */
+    --secondary: #A4D65E;    /* Verde Bolaños */
+    --danger: #EF4444;
+    --warning: #F59E0B;
+    --dark: #1F2937;
+    --light: #F9FAFB;
+    --gray: #D1D5DB;
+    --gray-light: #E5E7EB;
+    
+    /* ESPACIADO */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    
+    /* BORDES */
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    
+    /* SOMBRAS */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+body {
+    background: var(--light);
+    color: var(--dark);
+    overflow-x: hidden;
+}
+
+/* ================================================
+   ESTRUCTURA PRINCIPAL
+   ================================================ */
+
+.dashboard-wrapper,
+.conteo-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ================================================
+   HEADER
+   ================================================ */
+
+.app-header {
+    background: white;
+    border-bottom: 1px solid var(--gray-light);
+    padding: var(--spacing-md) var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.app-header.compact {
+    padding: var(--spacing-md);
+}
+
+/* ================================================
+   HEADER COMPACTO COMPARTIDO
+   (usado igual en Dashboard, Conteo y Resumen -
+   mismo tamaño y estilo en toda la app)
+   ================================================ */
+
+.conteo-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: white;
+    box-shadow: 0 2px 12px rgba(15, 76, 92, 0.08);
+}
+
+.topbar-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 10px var(--spacing-md);
+}
+
+.topbar-logo {
+    max-width: 36px;
+    height: auto;
+    flex-shrink: 0;
+}
+
+.topbar-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.topbar-title-main {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.topbar-title-sub {
+    font-size: 0.68rem;
+    color: #8B98A0;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: 600;
+}
+
+.header-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xl);
+    font-size: 0.9rem;
+    color: #6B7280;
+}
+
+.header-stats {
+    display: flex;
+    gap: var(--spacing-lg);
+    font-size: 0.85rem;
+    color: #6B7280;
+}
+
+.stat {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.current-date {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* ================================================
+   BOTONES
+   ================================================ */
+
+.btn-logout,
+.btn-back,
+.btn-secondary,
+.btn-primary,
+.btn-select,
+.btn-clear-search,
+.btn-close-form,
+.btn-qty,
+.btn-form-cancel,
+.btn-success-continue,
+.btn-error-close,
+.btn-confirm-cancel,
+.btn-confirm-save {
+    border: none;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--radius-lg);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    font-family: inherit;
+}
+
+.btn-logout {
+    background: var(--gray-light);
+    color: var(--dark);
+}
+
+.btn-back {
+    background: var(--gray-light);
+    color: var(--dark);
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.btn-logout:hover,
+.btn-back:hover {
+    background: var(--gray);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    box-shadow: var(--shadow-md);
+}
+
+.btn-primary:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-secondary {
+    background: white;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+}
+
+.btn-secondary:hover {
+    background: #F0F4FF;
+}
+
+.btn-select {
+    background: linear-gradient(135deg, var(--secondary) 0%, #059669 100%);
+    color: white;
+    margin-top: var(--spacing-md);
+    width: 100%;
+}
+
+.btn-select:hover {
+    transform: translateY(-2px);
+}
+
+.btn-clear-search,
+.btn-close-form {
+    background: transparent;
+    color: #6B7280;
+    padding: var(--spacing-sm);
+    font-size: 1.2rem;
+}
+
+.btn-qty {
+    background: var(--gray-light);
+    color: var(--dark);
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: var(--radius-md);
+    font-size: 1.2rem;
+}
+
+.btn-qty:active {
+    background: var(--gray);
+}
+
+/* ================================================
+   MAIN CONTENT
+   ================================================ */
+
+.dashboard-main,
+.conteo-main {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-lg);
+}
+
+.dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* ================================================
+   SECTION HEADERS
+   ================================================ */
+
+.section-header {
+    text-align: center;
+    margin-bottom: var(--spacing-xl);
+}
+
+.section-header h2 {
+    font-size: 1.6rem;
+    color: var(--dark);
+    margin-bottom: var(--spacing-sm);
+    font-weight: 800;
+}
+
+.section-description {
+    margin-top: var(--spacing-sm);
+    font-size: 1.05rem;
+    color: #6B7280;
+}
+
+/* ================================================
+   TARJETAS DE SELECCIÓN (DASHBOARD)
+   ================================================ */
+
+.selection-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-2xl);
+}
+
+.selection-card {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    text-align: center;
+    box-shadow: var(--shadow-md);
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    cursor: pointer;
+}
+
+.selection-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+.card-farmacia:hover {
+    border-color: #EC4899;
+    background: #FDF2F8;
+}
+
+.card-mercado:hover {
+    border-color: #F59E0B;
+    background: #FFFBEB;
+}
+
+.card-icon {
+    font-size: 3rem;
+    margin-bottom: var(--spacing-md);
+}
+
+.selection-card h3 {
+    font-size: 1.5rem;
+    color: var(--dark);
+    margin-bottom: var(--spacing-md);
+}
+
+.card-description {
+    color: #6B7280;
+    font-size: 0.95rem;
+    margin-bottom: var(--spacing-lg);
+    line-height: 1.5;
+}
+
+/* ================================================
+   OPCIONES ADICIONALES
+   ================================================ */
+
+.additional-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+}
+
+/* ================================================
+   FOOTER
+   ================================================ */
+
+.app-footer,
+.conteo-footer {
+    background: white;
+    border-top: 1px solid var(--gray-light);
+    padding: var(--spacing-md);
+    text-align: center;
+    font-size: 0.9rem;
+    color: #6B7280;
+}
+
+.conteo-footer {
+    position: sticky;
+    bottom: 0;
+    background: #F0F4FF;
+    border-top: 2px solid var(--primary);
+}
+
+#footer-info {
+    display: block;
+    padding: var(--spacing-sm);
+}
+
+/* ================================================
+   MODALES
+   ================================================ */
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+    animation: slideUp 0.3s ease;
+    text-align: center;
+}
+
+.modal-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-lg);
+}
+
+.spinner-large {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--gray-light);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ================================================
+   RESPONSIVE
+   ================================================ */
+
+@media (max-width: 768px) {
+    .dashboard-main,
+    .conteo-main {
+        padding: var(--spacing-md);
+    }
+    
+    .header-info {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+    
+    .selection-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .btn-logout,
+    .btn-back,
+    .btn-primary,
+    .btn-secondary {
+        font-size: 0.95rem;
+        padding: var(--spacing-md);
+    }
+}
+
+@media (max-width: 480px) {
+    .app-header {
+        padding: var(--spacing-md);
+    }
+    
+    .app-title {
+        font-size: 1.25rem;
+    }
+    
+    .section-header h2 {
+        font-size: 1.5rem;
+    }
+    
+    .modal-content {
+        width: 95%;
+        padding: var(--spacing-lg);
+    }
+}

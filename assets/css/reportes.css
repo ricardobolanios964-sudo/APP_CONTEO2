@@ -1,0 +1,127 @@
+/* ================================================
+   GENERAR REPORTES
+   ================================================ */
+
+.reportes-intro {
+    text-align: center;
+    margin-bottom: var(--spacing-xl);
+}
+
+.reportes-intro-icon {
+    font-size: 2.5rem;
+    margin-bottom: var(--spacing-sm);
+}
+
+.reportes-intro h2 {
+    color: var(--dark);
+    font-size: 1.25rem;
+    margin-bottom: 4px;
+}
+
+.reportes-intro p {
+    color: #6B7280;
+    font-size: 0.9rem;
+}
+
+/* SELECCIÓN DE SUCURSAL */
+
+.reportes-opciones {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.reporte-opcion-card {
+    background: white;
+    border: 2px solid var(--gray-light);
+    border-radius: 16px;
+    padding: var(--spacing-lg) var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.reporte-opcion-card.active {
+    border-color: var(--primary);
+    background: #F0F7F6;
+    box-shadow: 0 4px 14px rgba(15, 76, 92, 0.12);
+}
+
+.reporte-opcion-icon {
+    font-size: 1.8rem;
+    margin-bottom: 4px;
+}
+
+.reporte-opcion-nombre {
+    font-weight: 700;
+    color: var(--dark);
+    font-size: 0.95rem;
+}
+
+.reporte-opcion-hoja {
+    font-size: 0.7rem;
+    color: #9CA3AF;
+    font-family: 'Courier New', monospace;
+}
+
+/* TARJETA DE FORMATO/COLUMNAS */
+
+.reportes-formato-card {
+    background: white;
+    border-radius: 16px;
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+    box-shadow: 0 2px 10px rgba(15, 76, 92, 0.06);
+}
+
+.reportes-columnas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.reportes-columnas span {
+    background: #F0F7F6;
+    color: var(--primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 10px;
+}
+
+/* BOTÓN DE DESCARGA */
+
+.btn-descargar-reporte {
+    width: 100%;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    border: none;
+    padding: var(--spacing-md);
+    border-radius: 14px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(15, 76, 92, 0.25);
+    transition: all 0.2s ease;
+}
+
+.btn-descargar-reporte:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(15, 76, 92, 0.3);
+}
+
+.btn-descargar-reporte:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.reportes-nota {
+    text-align: center;
+    color: #9CA3AF;
+    font-size: 0.8rem;
+    margin-top: var(--spacing-md);
+}

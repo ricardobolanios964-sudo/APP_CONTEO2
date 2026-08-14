@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/icons/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/img/icons/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0D7377">
+    <title>Conteo - Farmacia Bolaños</title>
+    <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/conteo.css">
+    <link rel="stylesheet" href="assets/css/menu.css">
+</head>
+<body>
+    
+    <div class="conteo-wrapper">
+        
+        <!-- HEADER (sticky, propio, compacto, blanco) -->
+        <div class="conteo-topbar" id="conteo-topbar">
+            <div class="topbar-row">
+                <button class="btn-back" id="btn-back" aria-label="Volver">←</button>
+                
+                <div class="topbar-title">
+                    <span class="topbar-title-main" id="titulo-tipo">MERCADO</span>
+                    <span class="topbar-title-sub">Conteo de Inventario</span>
+                </div>
+                
+                <button class="hamburger-btn" id="hamburger-btn" aria-label="Abrir menú">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- BUSCADOR (sticky independiente, con su propio fondo de color, justo debajo del header) -->
+        <div class="search-sticky-band" id="search-sticky-band">
+            <div class="search-box">
+                <span class="search-box-icon">🔍</span>
+                <input 
+                    type="text" 
+                    id="search-input" 
+                    class="search-box-input"
+                    placeholder="Buscar por código, nombre o marca..."
+                    autocomplete="off"
+                    autofocus
+                >
+                <button type="button" class="btn-clear-search" id="btn-clear-search" style="display:none;">
+                    ✕
+                </button>
+            </div>
+            
+            <div class="conteos-count-row">
+                <span>📊</span> Conteos realizados en <strong id="tipo-label">Mercado</strong>: <strong id="count-total">0</strong>
+            </div>
+        </div>
+        
+        <!-- MENÚ DESPLEGABLE -->
+        <div class="dropdown-menu" id="dropdown-menu">
+            <div class="dropdown-user">
+                <div class="dropdown-user-avatar">👤</div>
+                <div>
+                    <div class="dropdown-user-name" id="dropdown-usuario-nombre">-</div>
+                    <div class="dropdown-user-role">En sesión</div>
+                </div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <a href="dashboard.html" class="dropdown-item">
+                <span class="dropdown-icon">📋</span> Conteos
+            </a>
+            <a href="resumen.html" class="dropdown-item">
+                <span class="dropdown-icon">📊</span> Resumen de Conteos
+            </a>
+            <a href="reportes.html" class="dropdown-item">
+                <span class="dropdown-icon">🧾</span> Generar Reportes
+            </a>
+            <div class="dropdown-divider"></div>
+            <a href="#" class="dropdown-item dropdown-logout" id="btn-logout">
+                <span class="dropdown-icon">🚪</span> Cerrar Sesión
+            </a>
+        </div>
+        <div class="dropdown-overlay" id="dropdown-overlay"></div>
+        
+        <!-- CONTENIDO PRINCIPAL -->
+        <main class="conteo-main">
+            
+            <!-- RESULTADOS EN TIEMPO REAL -->
+            <section class="results-section">
+                <div class="products-list" id="products-list">
+                    <div class="empty-state" id="empty-state">
+                        <div class="empty-icon">📦</div>
+                        <p>Empieza a escribir para ver los productos</p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- MODAL DE ESCANEO CON CÁMARA -->
+            <div class="scanner-modal" id="scanner-modal" style="display:none;">
+                <div class="scanner-modal-header">
+                    <span>📷 Escanear código de barras</span>
+                    <button type="button" class="scanner-close-btn" id="btn-close-scanner">✕</button>
+                </div>
+                <div class="scanner-viewport" id="scanner-viewport"></div>
+                <div class="scanner-hint">Apunta la cámara al código de barras del producto</div>
+                <div class="scanner-error" id="scanner-error" style="display:none;"></div>
+            </div>
+            
+            <!-- BOTÓN FLOTANTE - BÚSQUEDA POR CÓDIGO DE BARRAS -->
+            <button class="fab-barcode" id="fab-barcode" aria-label="Buscar por código de barras" title="Buscar por código de barras">
+                <span class="fab-barcode-icon">▤</span>
+            </button>
+            
+            <!-- MODAL DE CONTEO - Diseño profesional -->
+            <div class="conteo-modal-overlay" id="conteo-modal-overlay" style="display:none;">
+                <div class="conteo-modal">
+                    
+                    <div class="conteo-modal-header">
+                        <span>Registrar Conteo</span>
+                        <button type="button" class="btn-close-form" id="btn-close-form">✕</button>
+                    </div>
+                    
+                    <div class="conteo-modal-body">
+                        
+                        <form id="conteo-form" class="conteo-form">
+                            
+                            <!-- INFO DEL PRODUCTO (solo lectura, viene de OLIMPO) -->
+                            <div class="producto-info-card">
+                                <div class="producto-info-marca" id="form-marca">—</div>
+                                <div class="producto-info-nombre" id="form-nombre">—</div>
+                                <div class="producto-info-grid">
+                                    <div class="producto-info-item">
+                                        <span class="producto-info-label">Código</span>
+                                        <span class="producto-info-value" id="form-codigo">—</span>
+                                    </div>
+                                    <div class="producto-info-item">
+                                        <span class="producto-info-label">Categoría</span>
+                                        <span class="producto-info-value" id="form-categoria">—</span>
+                                    </div>
+                                    <div class="producto-info-item destacado">
+                                        <span class="producto-info-label">Existencia Sistema</span>
+                                        <span class="producto-info-value" id="form-existencia">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- AVISO: producto ya contado antes (no bloquea, solo informa) -->
+                            <div class="ya-contado-banner" id="ya-contado-banner" style="display:none;">
+                                <span class="ya-contado-icon">ℹ️</span>
+                                <span id="ya-contado-texto">Este producto ya fue contado.</span>
+                            </div>
+                            
+                            <!-- CANTIDAD FÍSICA (requerido) -->
+                            <div class="campo-grupo">
+                                <label for="form-cantidad" class="campo-label">Cantidad Física <span class="requerido">*</span></label>
+                                <div class="cantidad-input-group">
+                                    <button type="button" class="btn-qty" id="btn-qty-minus">−</button>
+                                    <input 
+                                        type="number" 
+                                        id="form-cantidad" 
+                                        class="form-input-qty"
+                                        placeholder="0"
+                                        min="0"
+                                        step="any"
+                                        inputmode="decimal"
+                                        required
+                                    >
+                                    <button type="button" class="btn-qty" id="btn-qty-plus">+</button>
+                                </div>
+                                <small id="error-cantidad" class="error-message"></small>
+                                
+                                <div class="diferencia-box" id="diferencia-box" style="display:none;">
+                                    <p id="diferencia-texto"></p>
+                                </div>
+                            </div>
+                            
+                            <!-- VENCE - selector tipo rueda (mes → año) -->
+                            <div class="campo-grupo">
+                                <label class="campo-label">Fecha de Vencimiento</label>
+                                
+                                <div class="vence-wheel-picker" id="vence-wheel-picker">
+                                    <div class="vence-wheel-highlight"></div>
+                                    <div class="vence-wheel-col" id="wheel-mes">
+                                        <div class="vence-wheel-pad"></div>
+                                        <div class="vence-wheel-item" data-value="1">Enero (1)</div>
+                                        <div class="vence-wheel-item" data-value="2">Febrero (2)</div>
+                                        <div class="vence-wheel-item" data-value="3">Marzo (3)</div>
+                                        <div class="vence-wheel-item" data-value="4">Abril (4)</div>
+                                        <div class="vence-wheel-item" data-value="5">Mayo (5)</div>
+                                        <div class="vence-wheel-item" data-value="6">Junio (6)</div>
+                                        <div class="vence-wheel-item" data-value="7">Julio (7)</div>
+                                        <div class="vence-wheel-item" data-value="8">Agosto (8)</div>
+                                        <div class="vence-wheel-item" data-value="9">Septiembre (9)</div>
+                                        <div class="vence-wheel-item" data-value="10">Octubre (10)</div>
+                                        <div class="vence-wheel-item" data-value="11">Noviembre (11)</div>
+                                        <div class="vence-wheel-item" data-value="12">Diciembre (12)</div>
+                                        <div class="vence-wheel-pad"></div>
+                                    </div>
+                                    <div class="vence-wheel-col" id="wheel-anio">
+                                        <div class="vence-wheel-pad"></div>
+                                        <div class="vence-wheel-pad"></div>
+                                    </div>
+                                </div>
+                                
+                                <label class="checkbox-na">
+                                    <input type="checkbox" id="check-no-vence">
+                                    <span>No aplica fecha de vencimiento</span>
+                                </label>
+                            </div>
+                            
+                            <!-- PRECIOS - fila de 2 -->
+                            <div class="campo-fila">
+                                <div class="campo-grupo">
+                                    <label for="form-pvp" class="campo-label">PVP Público <span class="opcional">(opcional)</span></label>
+                                    <div class="input-money">
+                                        <span class="input-money-symbol">$</span>
+                                        <input 
+                                            type="number" 
+                                            id="form-pvp" 
+                                            class="form-input-money"
+                                            placeholder="0.00"
+                                            step="0.01"
+                                            min="0"
+                                        >
+                                    </div>
+                                </div>
+                                <div class="campo-grupo">
+                                    <label for="form-precio-dnm" class="campo-label">Precio DNM <span class="opcional">(opcional)</span></label>
+                                    <div class="input-money">
+                                        <span class="input-money-symbol">$</span>
+                                        <input 
+                                            type="number" 
+                                            id="form-precio-dnm" 
+                                            class="form-input-money"
+                                            placeholder="0.00"
+                                            step="0.01"
+                                            min="0"
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- OBSERVACIONES -->
+                            <div class="campo-grupo">
+                                <label for="form-observaciones" class="campo-label">Observaciones <span class="opcional">(opcional)</span></label>
+                                <textarea 
+                                    id="form-observaciones" 
+                                    class="form-textarea"
+                                    placeholder="Escribe algún comentario si es necesario..."
+                                    rows="3"
+                                ></textarea>
+                            </div>
+                            
+                        </form>
+                        
+                    </div>
+                    
+                    <!-- BOTONES FIJOS ABAJO -->
+                    <div class="conteo-modal-footer">
+                        <button type="button" class="btn-secondary" id="btn-form-cancel">
+                            Cancelar
+                        </button>
+                        <button type="submit" form="conteo-form" class="btn-primary">
+                            💾 Guardar Conteo
+                        </button>
+                    </div>
+                    
+                </div>
+            </div>
+            
+        </main>
+        
+    </div>
+    
+    <!-- MODAL DE CONFIRMACIÓN -->
+    <div class="modal" id="modal-confirm" style="display:none;">
+        <div class="modal-content">
+            <h3>Confirmar Guardado</h3>
+            <p id="confirm-message"></p>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="btn-confirm-cancel">Cancelar</button>
+                <button class="btn-primary" id="btn-confirm-save">Confirmar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL DE ENVIANDO -->
+    <div class="modal modal-sending" id="modal-sending" style="display:none;">
+        <div class="modal-content modal-sending-content">
+            <div class="sending-orbit">
+                <div class="sending-orbit-dot"></div>
+                <div class="sending-orbit-dot"></div>
+                <div class="sending-orbit-dot"></div>
+                <div class="sending-icon">📦</div>
+            </div>
+            <h3 class="sending-title">Enviando conteo...</h3>
+            <p class="sending-subtitle">Un momento por favor...</p>
+        </div>
+    </div>
+    
+    <!-- MODAL DE ÉXITO -->
+    <div class="modal" id="modal-success" style="display:none;">
+        <div class="modal-content modal-success">
+            <div class="success-check-wrap">
+                <svg class="success-check-svg" viewBox="0 0 52 52">
+                    <circle class="success-check-circle" cx="26" cy="26" r="24" fill="none"/>
+                    <path class="success-check-mark" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                </svg>
+            </div>
+            <h3>¡Enviado con éxito!</h3>
+            <p id="success-message"></p>
+            <button class="btn-primary" id="btn-success-continue">Continuar</button>
+        </div>
+    </div>
+    
+    <!-- MODAL DE ERROR -->
+    <div class="modal" id="modal-error" style="display:none;">
+        <div class="modal-content modal-error">
+            <div class="error-icon">⚠️</div>
+            <h3>Error</h3>
+            <p id="error-message"></p>
+            <button class="btn-primary" id="btn-error-close">Cerrar</button>
+        </div>
+    </div>
+    
+    <!-- SCRIPTS -->
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/sheets-api.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/vendor/quagga.min.js"></script>
+    <script src="assets/js/conteo.js"></script>
+    
+</body>
+</html>
