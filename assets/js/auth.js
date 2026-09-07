@@ -8,21 +8,21 @@
 const Auth = {
 
     estaLogueado() {
-        return sessionStorage.getItem('bolanos_logueado') === 'true';
+        return localStorage.getItem('bolanos_logueado') === 'true';
     },
 
     getUsuarioActual() {
-        return sessionStorage.getItem('bolanos_usuario') || '';
+        return localStorage.getItem('bolanos_usuario') || '';
     },
 
     iniciarSesion(usuario) {
-        sessionStorage.setItem('bolanos_logueado', 'true');
-        sessionStorage.setItem('bolanos_usuario', usuario);
-        sessionStorage.setItem('bolanos_login_time', Date.now().toString());
+        localStorage.setItem('bolanos_logueado', 'true');
+        localStorage.setItem('bolanos_usuario', usuario);
+        localStorage.setItem('bolanos_login_time', Date.now().toString());
     },
 
     cerrarSesion() {
-        sessionStorage.clear();
+        localStorage.clear();
         window.location.href = 'index.html';
     },
 
