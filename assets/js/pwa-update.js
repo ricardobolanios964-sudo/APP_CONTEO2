@@ -1,6 +1,6 @@
 /*
  * APP_CONTEO2 - Aviso de actualización de PWA
- * Versión 2.4.1
+ * Versión 2.4.2
  *
  * Detecta una versión nueva y muestra un aviso al usuario.
  * La aplicación NO se recarga automáticamente: el usuario decide
@@ -9,9 +9,25 @@
 (function () {
     'use strict';
 
-    var APP_VERSION = '2.4.1';
+    var APP_VERSION = '2.4.2';
     var checking = false;
     var updating = false;
+
+    // El login espera esta comprobación antes de redirigir al dashboard.
+    // Si hay una actualización, la promesa queda pendiente hasta que el
+    // usuario pulse "Actualizar" (la página se recarga durante el proceso).
+    var resolverInicio;
+    var inicioResuelto = false;
+    window.PWAUpdateReady = new Promise(function (resolve) {
+        resolverInicio = resolve;
+    });
+
+    function resolverInicioSiCorresponde() {
+        if (!inicioResuelto) {
+            inicioResuelto = true;
+            resolverInicio();
+        }
+    }
 
     function crearAvisoActualizacion(versionNueva) {
         if (document.getElementById('pwa-update-notice')) return;
@@ -221,9 +237,15 @@
 
             if (versionNueva && versionNueva !== APP_VERSION) {
                 crearAvisoActualizacion(versionNueva);
+                // No resolvemos aquí: el usuario debe elegir Actualizar.
+                return;
             }
+
+            resolverInicioSiCorresponde();
         } catch (error) {
             console.warn('No se pudo comprobar la versión de APP_CONTEO2:', error);
+            // Si el servidor no responde, no bloqueamos el acceso.
+            resolverInicioSiCorresponde();
         } finally {
             checking = false;
         }

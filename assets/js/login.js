@@ -6,9 +6,17 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     
-    // Si ya hay sesión activa, saltar directo al dashboard
+    // Si ya hay sesión activa, primero permitimos que el sistema PWA
+    // compruebe si existe una actualización. Si la hay, el aviso aparece
+    // en el login antes de entrar al dashboard.
     if (Auth.estaLogueado()) {
-        window.location.href = 'dashboard.html';
+        if (window.PWAUpdateReady) {
+            window.PWAUpdateReady.then(function () {
+                window.location.href = 'dashboard.html';
+            });
+        } else {
+            window.location.href = 'dashboard.html';
+        }
         return;
     }
     
