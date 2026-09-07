@@ -1,0 +1,30 @@
+APP_CONTEO2 - V2.3.1
+
+CAMBIOS:
+1. Cierre de sesión simplificado:
+   - Mensaje corto.
+   - Botones en columna para celular.
+   - "Cancelar" y "Cerrar sesión".
+   - Sin animación de entrada/salida.
+   - Cancelar responde inmediatamente.
+   - Cerrar sesión ejecuta Auth.cerrarSesion() inmediatamente.
+
+2. Actualización PWA:
+   - Se conserva el sistema de actualización de V2.3.0.
+   - Se incrementa la versión a V2.3.1.
+   - Se mantienen las referencias versionadas de recursos.
+   - Se elimina cualquier etiqueta de prueba visible de versión.
+
+3. Pie de página:
+   - La versión visible se muestra como v2.3.1 donde existía el texto v1.0.0.
+
+NO SE MODIFICÓ:
+- Buscador.
+- Primeros 100 productos.
+- Mercado/Farmacia.
+- Conteo.
+- Google Sheets.
+- Cámara.
+- Reportes.
+- Resumen.
+- Login.

@@ -58,11 +58,11 @@ Esa es tu app funcionando en internet, gratis, para siempre.
 
 ## 🔄 Control de versiones, caché y actualización obligatoria de la PWA
 
-**Versión actual:** `2.3.0`
+**Versión actual:** `2.3.1`
 
 La aplicación utiliza dos mecanismos complementarios para evitar que un navegador o una PWA instalada conserve una versión antigua:
 
-1. **Versionado de recursos:** CSS y JavaScript llevan `?v=2.3.0`.
+1. **Versionado de recursos:** CSS y JavaScript llevan `?v=2.3.1`.
 2. **Service Worker:** la PWA tiene `service-worker.js` con una caché identificada por versión. Al publicarse una versión nueva, el navegador detecta el nuevo Service Worker, elimina la caché anterior y toma control de la aplicación.
 
 ### Actualización obligatoria
@@ -76,9 +76,9 @@ El sistema usa `updateViaCache: "none"` y una comprobación de actualización al
 Cada cambio funcional debe aumentar la versión. Ejemplo:
 
 ```text
-2.3.0 → 2.3.0
-2.3.0 → 2.2.2
-2.2.2 → 2.3.0
+2.3.1 → 2.3.1
+2.3.1 → 2.2.2
+2.2.2 → 2.3.1
 ```
 
 Cuando se cambie la versión, hay que actualizar el número en los HTML y en `service-worker.js` / `pwa-update.js`.

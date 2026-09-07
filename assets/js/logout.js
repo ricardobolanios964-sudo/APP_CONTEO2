@@ -1,35 +1,25 @@
 /**
- * APP_CONTEO2 - Cierre de sesión profesional
+ * APP_CONTEO2 - Cierre de sesión
+ * V2.3.1
+ *
+ * Modal simple y rápido. No utiliza animaciones de cierre
+ * ni temporizadores antes de cancelar o cerrar sesión.
  */
 document.addEventListener('DOMContentLoaded', function () {
     const btnLogout = document.getElementById('btn-logout');
     const modal = document.getElementById('modal-logout');
     const btnCancel = document.getElementById('btn-logout-cancel');
     const btnConfirm = document.getElementById('btn-logout-confirm');
-    const userName = document.getElementById('logout-user-name');
 
     if (!btnLogout || !modal) return;
 
-    if (userName && typeof Auth !== 'undefined') {
-        userName.textContent = Auth.getUsuarioActual() || 'usuario';
-    }
-
     function abrir() {
-        if (userName && typeof Auth !== 'undefined') {
-            userName.textContent = Auth.getUsuarioActual() || 'usuario';
-        }
         modal.style.display = 'flex';
-        requestAnimationFrame(function () {
-            modal.classList.add('logout-modal-open');
-        });
         if (btnCancel) btnCancel.focus();
     }
 
     function cerrar() {
-        modal.classList.remove('logout-modal-open');
-        setTimeout(function () {
-            modal.style.display = 'none';
-        }, 180);
+        modal.style.display = 'none';
     }
 
     btnLogout.addEventListener('click', function (e) {
@@ -47,16 +37,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (btnConfirm) {
         btnConfirm.addEventListener('click', function () {
             btnConfirm.disabled = true;
-            btnConfirm.innerHTML = '<span class="logout-spinner"></span> Cerrando sesión...';
-
-            setTimeout(function () {
-                Auth.cerrarSesion();
-            }, 350);
+            Auth.cerrarSesion();
         });
     }
 
     modal.addEventListener('click', function (e) {
-        if (e.target === modal) cerrar();
+        if (e.target === modal) {
+            cerrar();
+        }
     });
 
     document.addEventListener('keydown', function (e) {
