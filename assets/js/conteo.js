@@ -354,13 +354,16 @@ class ConteoManager {
 
     limpiarResultados() {
         const productsList = document.getElementById('products-list');
-        
-        productsList.innerHTML = `
-            <div class="empty-state" id="empty-state">
-                <div class="empty-icon">📦</div>
-                <p>Empieza a escribir para ver los productos</p>
-            </div>
-        `;
+
+        // Al borrar la búsqueda, volver a mostrar los primeros 100 productos
+        // que se cargaron al entrar al formulario.
+        if (this.productosIniciales && this.productosIniciales.length > 0) {
+            this.mostrarResultados(this.productosIniciales);
+            return;
+        }
+
+        // Solo como respaldo si los productos iniciales todavía no están cargados.
+        this.cargarPrimerosProductos();
     }
     
     mostrarCargando() {
