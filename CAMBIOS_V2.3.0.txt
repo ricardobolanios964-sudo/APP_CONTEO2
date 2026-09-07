@@ -1,0 +1,23 @@
+APP_CONTEO2 V2.3.0
+
+1. ACTUALIZACION PWA MULTINAVEGADOR
+- Se incorpora comprobacion de version mediante version.json.
+- La comprobacion usa una solicitud sin cache y un parametro unico.
+- Si existe una version nueva, la aplicacion muestra una pantalla de actualizacion obligatoria.
+- El usuario debe actualizar para continuar.
+- El Service Worker nuevo elimina las caches antiguas y toma el control.
+- La navegacion se solicita con cache no-store para favorecer la recepcion de HTML actualizado.
+- El sistema mantiene funcionamiento offline cuando no hay una version nueva disponible.
+- El mecanismo esta pensado para navegadores con soporte de Service Worker/PWA, incluidos Chrome, Edge, Samsung Internet y Safari moderno.
+- En navegadores que no soporten Service Worker, la version.json sigue permitiendo detectar una actualizacion y recargar la pagina con un parametro de version.
+
+2. CIERRE DE SESION
+- Se elimina la confirmacion nativa de JavaScript.
+- Se incorpora un modal profesional integrado con el diseño de APP CONTEO2.
+- Muestra el usuario actual.
+- Permite continuar en la aplicacion o cerrar sesion.
+- El cierre limpia la sesion existente mediante Auth.cerrarSesion().
+- No modifica datos ni conteos.
+
+3. CAMBIOS DEL SISTEMA EXISTENTE
+- No se modificaron las reglas de conteo, buscador, inventario, Google Sheets, camara, vencimientos ni reportes.

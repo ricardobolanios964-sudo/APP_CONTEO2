@@ -33,17 +33,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Cerrar sesión
-    const btnLogout = document.getElementById('btn-logout');
-    if (btnLogout) {
-        btnLogout.addEventListener('click', function(e) {
-            e.preventDefault();
-            if (confirm('¿Desea cerrar sesión?')) {
-                Auth.cerrarSesion();
-            }
-        });
-    }
-    
     // ================================================
     // SELECCIÓN DE TIPO DE CONTEO
     // ================================================

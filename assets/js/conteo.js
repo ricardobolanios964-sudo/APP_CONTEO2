@@ -139,16 +139,6 @@ class ConteoManager {
             });
         }
         
-        const btnLogout = document.getElementById('btn-logout');
-        if (btnLogout) {
-            btnLogout.addEventListener('click', (e) => {
-                e.preventDefault();
-                if (confirm('¿Desea cerrar sesión?')) {
-                    Auth.cerrarSesion();
-                }
-            });
-        }
-        
         document.getElementById('btn-close-form').addEventListener('click', () => {
             this.intentarCerrarFormulario();
         });

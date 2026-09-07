@@ -1,9 +1,12 @@
-const APP_VERSION = "2.2.1";
+const APP_VERSION = "2.3.0";
 const CACHE_NAME = `app-conteo2-${APP_VERSION}`;
 
-// Solo guardamos recursos locales de la aplicación.
 const APP_SHELL = [
     `./index.html?v=${APP_VERSION}`,
+    `./dashboard.html?v=${APP_VERSION}`,
+    `./conteo.html?v=${APP_VERSION}`,
+    `./resumen.html?v=${APP_VERSION}`,
+    `./reportes.html?v=${APP_VERSION}`,
     `./manifest.json?v=${APP_VERSION}`,
     `./assets/css/main.css?v=${APP_VERSION}`,
     `./assets/css/menu.css?v=${APP_VERSION}`,
@@ -21,6 +24,7 @@ const APP_SHELL = [
     `./assets/js/reportes.js?v=${APP_VERSION}`,
     `./assets/js/vendor/quagga.min.js?v=${APP_VERSION}`,
     `./assets/js/pwa-update.js?v=${APP_VERSION}`,
+    `./assets/js/logout.js?v=${APP_VERSION}`,
     `./assets/img/logo.png`,
     `./assets/img/BOLANIOS.png`,
     `./assets/img/icons/icon-192.png`,
@@ -58,9 +62,16 @@ self.addEventListener('message', event => {
 
 self.addEventListener('fetch', event => {
     const request = event.request;
+    const url = new URL(request.url);
 
-    // Navegación: siempre intentamos obtener el HTML más reciente de GitHub Pages.
-    // Si no hay conexión, usamos la copia guardada.
+    // El archivo de versión SIEMPRE debe venir de red. El parámetro
+    // aleatorio usado por pwa-update evita que cualquier SW antiguo
+    // pueda entregar una copia guardada.
+    if (url.pathname.endsWith('/version.json')) {
+        event.respondWith(fetch(request, { cache: 'no-store' }));
+        return;
+    }
+
     if (request.mode === 'navigate') {
         event.respondWith(
             fetch(request, { cache: 'no-store' })
@@ -71,14 +82,16 @@ self.addEventListener('fetch', event => {
                     }
                     return response;
                 })
-                .catch(() => caches.match(request).then(cached => cached || caches.match('./index.html?v=' + APP_VERSION)))
+                .catch(() =>
+                    caches.match(request).then(cached =>
+                        cached || caches.match('./index.html?v=' + APP_VERSION)
+                    )
+                )
         );
         return;
     }
 
-    // Solo manejamos recursos del mismo origen. Las llamadas a Google Sheets/API
-    // siguen pasando directamente por el navegador.
-    if (new URL(request.url).origin !== self.location.origin) return;
+    if (url.origin !== self.location.origin) return;
 
     event.respondWith(
         caches.match(request).then(cached => {
