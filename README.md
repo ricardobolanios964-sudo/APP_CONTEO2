@@ -55,6 +55,45 @@ Esa es tu app funcionando en internet, gratis, para siempre.
 - Generar Reportes (descarga CSV)
 - Todo el diseño y estilos, sin cambios
 
+
+## 🔄 Control de versiones y caché del navegador
+
+La aplicación utiliza **versionado de recursos** para evitar que un navegador conserve una versión antigua de los archivos CSS o JavaScript después de publicar una actualización en GitHub Pages.
+
+**Versión actual:** `2.1.0`
+
+Los archivos locales se cargan con un identificador de versión, por ejemplo:
+
+```html
+<script src="assets/js/conteo.js?v=2.1.0"></script>
+```
+
+### Regla para futuras actualizaciones
+
+Cada vez que se haga una actualización funcional de la aplicación, se debe aumentar la versión. Por ejemplo:
+
+```text
+2.1.0 → 2.1.1
+2.1.1 → 2.1.2
+2.1.2 → 2.2.0
+```
+
+Después de cambiar la versión en los HTML y hacer **Commit + Push**, el navegador verá los recursos con una dirección diferente y descargará la versión nueva. Esto evita depender de que el usuario borre manualmente la caché.
+
+> **Importante:** una página web no puede borrar directamente toda la caché del navegador. El versionado de recursos es la estrategia utilizada en este proyecto para forzar la actualización de CSS/JavaScript sin romper versiones anteriores.
+
+### Flujo recomendado
+
+1. Realizar la modificación.
+2. Aumentar el número de versión.
+3. Probar localmente.
+4. Hacer **Commit** en GitHub Desktop.
+5. Hacer **Push origin**.
+6. Abrir la misma URL de GitHub Pages.
+7. Si la página ya estaba abierta, hacer una recarga normal; como último recurso, `Ctrl + F5`.
+
+La URL pública de la aplicación **no cambia** por cada versión.
+
 ## 🔧 Si algo no funciona
 
 Abre las herramientas de desarrollador del navegador (F12) → pestaña

@@ -1,0 +1,3 @@
+APP_CONTEO2
+Version: 2.1.0
+Cache busting: enabled via ?v=2.1.0 on local CSS/JS/manifest resources.
