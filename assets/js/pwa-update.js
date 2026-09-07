@@ -1,6 +1,6 @@
 /*
  * APP_CONTEO2 - Aviso de actualización de PWA
- * Versión 2.4.0
+ * Versión 2.4.1
  *
  * Detecta una versión nueva y muestra un aviso al usuario.
  * La aplicación NO se recarga automáticamente: el usuario decide
@@ -9,7 +9,7 @@
 (function () {
     'use strict';
 
-    var APP_VERSION = '2.4.0';
+    var APP_VERSION = '2.4.1';
     var checking = false;
     var updating = false;
 
