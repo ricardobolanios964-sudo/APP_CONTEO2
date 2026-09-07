@@ -1,4 +1,4 @@
-const APP_VERSION = "2.2.0";
+const APP_VERSION = "2.2.1";
 const CACHE_NAME = `app-conteo2-${APP_VERSION}`;
 
 // Solo guardamos recursos locales de la aplicación.

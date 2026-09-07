@@ -1,5 +1,1 @@
-APP_CONTEO2
-Version: 2.2.0
-Cache busting: enabled via ?v=2.2.0.
-PWA updates: enabled via service-worker.js and pwa-update.js.
-Mandatory update behavior: when a new published service worker is detected, it takes control and the open app reloads to the new version automatically.
+2.2.1
