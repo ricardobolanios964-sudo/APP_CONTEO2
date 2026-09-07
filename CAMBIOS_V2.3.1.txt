@@ -1,4 +1,4 @@
-APP_CONTEO2 - V2.3.1
+APP_CONTEO2 - V2.4.0
 
 CAMBIOS:
 1. Cierre de sesión simplificado:
@@ -11,12 +11,12 @@ CAMBIOS:
 
 2. Actualización PWA:
    - Se conserva el sistema de actualización de V2.3.0.
-   - Se incrementa la versión a V2.3.1.
+   - Se incrementa la versión a V2.4.0.
    - Se mantienen las referencias versionadas de recursos.
    - Se elimina cualquier etiqueta de prueba visible de versión.
 
 3. Pie de página:
-   - La versión visible se muestra como v2.3.1 donde existía el texto v1.0.0.
+   - La versión visible se muestra como v2.4.0 donde existía el texto v1.0.0.
 
 NO SE MODIFICÓ:
 - Buscador.

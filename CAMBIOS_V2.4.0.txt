@@ -1,0 +1,22 @@
+APP_CONTEO2 - V2.4.0
+
+NUEVO:
+- Se mejora el sistema de actualización de la PWA.
+- Cuando se detecta una nueva versión, ahora se muestra un aviso sencillo:
+  "Nueva actualización detectada" + botón "Actualizar".
+- La actualización NO se ejecuta automáticamente.
+- El usuario decide cuándo pulsar "Actualizar".
+- El aviso se adapta a pantallas pequeñas.
+- Se vuelve a comprobar la versión al regresar a la aplicación después de dejarla en segundo plano.
+- Se mantiene la actualización mediante Service Worker y limpieza de caché al confirmar.
+- La sesión del usuario no se borra durante la actualización.
+
+NO MODIFICADO:
+- Funciones de conteo.
+- Búsqueda de productos.
+- Separación Mercado/Farmacia.
+- Productos iniciales y marcado CONTADO.
+- Conexión con Google Sheets.
+- Inicio de sesión y cierre de sesión.
+- Reportes, resumen y dashboard.
+- Demás funciones existentes de APP_CONTEO2.

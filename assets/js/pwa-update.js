@@ -1,61 +1,126 @@
 /*
- * APP_CONTEO2 - Control de actualización de PWA
- * Versión 2.3.1
+ * APP_CONTEO2 - Aviso de actualización de PWA
+ * Versión 2.4.0
  *
- * Comprueba la versión publicada desde version.json. Si hay una versión
- * nueva, bloquea la aplicación hasta completar la actualización.
+ * Detecta una versión nueva y muestra un aviso al usuario.
+ * La aplicación NO se recarga automáticamente: el usuario decide
+ * cuándo actualizar mediante el botón "Actualizar".
  */
 (function () {
     'use strict';
 
-    var APP_VERSION = '2.3.1';
+    var APP_VERSION = '2.4.0';
     var checking = false;
     var updating = false;
 
     function crearAvisoActualizacion(versionNueva) {
-        if (document.getElementById('pwa-update-required')) return;
+        if (document.getElementById('pwa-update-notice')) return;
 
-        var overlay = document.createElement('div');
-        overlay.id = 'pwa-update-required';
-        overlay.innerHTML = `
-            <div style="
-                position:fixed; inset:0; z-index:100000;
-                background:rgba(15,23,42,.72);
-                display:flex; align-items:center; justify-content:center;
-                padding:24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-            ">
-                <div style="
-                    width:min(420px,100%); background:#fff; border-radius:20px;
-                    padding:30px 24px; text-align:center;
-                    box-shadow:0 25px 60px rgba(0,0,0,.25);
-                ">
-                    <div style="
-                        width:64px;height:64px;margin:0 auto 18px;border-radius:50%;
-                        display:flex;align-items:center;justify-content:center;
-                        background:#E6FFFA;color:#0D7377;font-size:30px;
-                    ">↻</div>
-                    <h2 style="margin:0 0 10px;color:#1F2937;font-size:22px;">
-                        Nueva actualización disponible
-                    </h2>
-                    <p style="margin:0 0 8px;color:#6B7280;line-height:1.5;">
-                        Hay una nueva versión de APP CONTEO disponible.
-                    </p>
-                    <p style="margin:0 0 22px;color:#0D7377;font-weight:700;">
-                        Versión ${versionNueva}
-                    </p>
-                    <button id="pwa-update-button" type="button" style="
-                        width:100%; border:0; border-radius:12px; padding:14px 18px;
-                        background:linear-gradient(135deg,#0D7377,#0A5A67);
-                        color:#fff;font-size:16px;font-weight:700;cursor:pointer;
-                    ">
-                        Actualizar aplicación
-                    </button>
-                    <p id="pwa-update-status" style="margin:14px 0 0;color:#9CA3AF;font-size:12px;"></p>
+        var notice = document.createElement('div');
+        notice.id = 'pwa-update-notice';
+        notice.setAttribute('role', 'alertdialog');
+        notice.setAttribute('aria-live', 'polite');
+        notice.innerHTML = `
+            <div class="pwa-update-box">
+                <div class="pwa-update-icon" aria-hidden="true">↻</div>
+                <div class="pwa-update-text">
+                    <strong>Nueva actualización detectada</strong>
+                    <span>Hay una nueva versión disponible: <b>v${versionNueva}</b></span>
                 </div>
+                <button id="pwa-update-button" type="button">Actualizar</button>
             </div>
         `;
 
-        document.body.appendChild(overlay);
+        var style = document.createElement('style');
+        style.id = 'pwa-update-styles';
+        style.textContent = `
+            #pwa-update-notice {
+                position: fixed;
+                left: 12px;
+                right: 12px;
+                top: max(12px, env(safe-area-inset-top));
+                z-index: 100000;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            }
+            .pwa-update-box {
+                width: min(560px, 100%);
+                margin: 0 auto;
+                box-sizing: border-box;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 12px 14px;
+                background: #fff;
+                border: 1px solid rgba(13,115,119,.18);
+                border-radius: 12px;
+                box-shadow: 0 8px 24px rgba(0,0,0,.16);
+            }
+            .pwa-update-icon {
+                width: 40px;
+                height: 40px;
+                min-width: 40px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #E6FFFA;
+                color: #0D7377;
+                font-size: 22px;
+                font-weight: 700;
+            }
+            .pwa-update-text {
+                min-width: 0;
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+            }
+            .pwa-update-text strong {
+                color: #1F2937;
+                font-size: 14px;
+            }
+            .pwa-update-text span {
+                color: #6B7280;
+                font-size: 12px;
+                line-height: 1.35;
+            }
+            .pwa-update-text b { color: #0D7377; }
+            #pwa-update-button {
+                border: 0;
+                border-radius: 9px;
+                padding: 10px 14px;
+                background: #0D7377;
+                color: #fff;
+                font-size: 13px;
+                font-weight: 700;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+            #pwa-update-button:disabled { opacity: .65; cursor: default; }
+            #pwa-update-status {
+                position: fixed;
+                left: 50%;
+                transform: translateX(-50%);
+                top: calc(max(12px, env(safe-area-inset-top)) + 76px);
+                z-index: 100001;
+                margin: 0;
+                padding: 7px 10px;
+                border-radius: 8px;
+                background: rgba(31,41,55,.94);
+                color: #fff;
+                font-size: 12px;
+                display: none;
+            }
+            @media (max-width: 480px) {
+                .pwa-update-box { gap: 9px; padding: 10px; }
+                .pwa-update-icon { width: 34px; height: 34px; min-width: 34px; font-size: 19px; }
+                .pwa-update-text strong { font-size: 13px; }
+                .pwa-update-text span { font-size: 11px; }
+                #pwa-update-button { padding: 9px 11px; font-size: 12px; }
+            }
+        `;
+        document.head.appendChild(style);
+        document.body.appendChild(notice);
 
         document.getElementById('pwa-update-button').addEventListener('click', function () {
             actualizarAplicacion(versionNueva);
@@ -72,9 +137,15 @@
         if (button) {
             button.disabled = true;
             button.textContent = 'Actualizando...';
-            button.style.opacity = '0.7';
         }
-        if (status) status.textContent = 'Preparando la nueva versión...';
+
+        if (!status) {
+            status = document.createElement('p');
+            status.id = 'pwa-update-status';
+            document.body.appendChild(status);
+        }
+        status.textContent = 'Actualizando aplicación...';
+        status.style.display = 'block';
 
         try {
             if ('serviceWorker' in navigator) {
@@ -95,7 +166,7 @@
                 }
             }
 
-            // Limpiar caches de la aplicación. No tocamos sessionStorage.
+            // No tocamos sessionStorage: la sesión del usuario permanece.
             if ('caches' in window) {
                 var keys = await caches.keys();
                 await Promise.all(
@@ -105,26 +176,19 @@
                 );
             }
 
-            if (status) status.textContent = 'Actualización completada. Abriendo nueva versión...';
-
-            // Query de versión para evitar una respuesta HTML antigua.
-            var nuevaUrl = window.location.pathname +
+            window.location.replace(
+                window.location.pathname +
                 '?app_version=' + encodeURIComponent(versionNueva) +
-                '&t=' + Date.now();
-
-            window.location.replace(nuevaUrl);
-
+                '&t=' + Date.now()
+            );
         } catch (error) {
             console.error('Error al actualizar APP_CONTEO2:', error);
-
-            if (status) {
-                status.textContent =
-                    'No se pudo completar automáticamente. Intentando nuevamente...';
+            updating = false;
+            if (button) {
+                button.disabled = false;
+                button.textContent = 'Actualizar';
             }
-
-            setTimeout(function () {
-                window.location.reload(true);
-            }, 1500);
+            status.textContent = 'No se pudo actualizar. Intenta nuevamente.';
         }
     }
 
@@ -134,17 +198,14 @@
                 resolve();
                 return;
             }
-
             worker.addEventListener('statechange', function () {
-                if (worker.state === 'installed' || worker.state === 'activated') {
-                    resolve();
-                }
+                if (worker.state === 'installed' || worker.state === 'activated') resolve();
             });
         });
     }
 
     async function comprobarVersion() {
-        if (checking) return;
+        if (checking || document.hidden) return;
         checking = true;
 
         try {
@@ -181,13 +242,15 @@
         });
 
         navigator.serviceWorker.addEventListener('controllerchange', function () {
-            if (!updating) {
-                window.location.reload();
-            }
+            // Solo recargamos cuando el usuario ya eligió actualizar.
+            if (updating) window.location.reload();
         });
     }
 
-    window.addEventListener('load', function () {
-        comprobarVersion();
+    window.addEventListener('load', comprobarVersion);
+
+    // Vuelve a comprobar al regresar a la app después de dejarla en segundo plano.
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) comprobarVersion();
     });
 })();
