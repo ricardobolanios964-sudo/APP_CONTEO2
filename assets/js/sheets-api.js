@@ -140,6 +140,40 @@ const SheetsAPI = {
     },
 
     /**
+     * Primeros productos para la carga inicial del formulario.
+     * Respeta el orden de la hoja y limita la lista visible a 100.
+     * La búsqueda normal sigue utilizando todo el inventario.
+     */
+    async getPrimerosProductos(gid, limite = 100) {
+        if (!gid) {
+            throw new Error('No se especificó la hoja OLIMPO para este formulario.');
+        }
+
+        const filas = await this._fetchCSV(gid, CONFIG.CACHE_TTL_OLIMPO);
+        const datos = filas.slice(1)
+            .filter(r => r[0] && r[0].trim())
+            .slice(0, limite);
+
+        return datos.map(r => ({
+            codigo: (r[0] || '').trim(),
+            nombre: (r[1] || '').trim(),
+            lote: (r[2] || '').trim(),
+            ubicacion: (r[3] || '').trim(),
+            saldo: this._toNumber(r[4]),
+            categoria: (r[5] || '').trim(),
+            marca: (r[6] || '').trim(),
+            presentaciones: (r[7] || '').trim(),
+            unidades: (r[8] || '').trim(),
+            codigo_barra_1: (r[9] || '').trim(),
+            codigo_barra_2: (r[10] || '').trim(),
+            costo_promedio: this._toNumber(r[11]),
+            precio_default: this._toNumber(r[12]),
+            precio_lista: this._toNumber(r[13]),
+            precio_factor_g: this._toNumber(r[14]),
+        }));
+    },
+
+    /**
      * Búsqueda con relevancia - misma lógica que sheetsmodel.php
      */
     async buscarProducto(termino, tipoBusqueda = 'all', gid) {
@@ -249,6 +283,35 @@ const SheetsAPI = {
             return { configurado: true, ya_registrado: veces > 0, veces };
         } catch (e) {
             return { configurado: false, ya_registrado: false, veces: 0 };
+        }
+    },
+
+    /**
+     * Devuelve los códigos ya registrados en la hoja de conteos
+     * de la sucursal actual para marcarlos visualmente en la lista.
+     */
+    async getCodigosRegistrados(gid) {
+        if (!gid) return [];
+
+        try {
+            const filas = await this._fetchCSV(gid, CONFIG.CACHE_TTL_CONTEOS);
+            if (!filas.length) return [];
+
+            const headers = filas[0].map(h => h.trim());
+            const colCodigo = headers.indexOf('CODIGO');
+            if (colCodigo === -1) return [];
+
+            const codigos = new Set();
+
+            for (const row of filas.slice(1)) {
+                const codigo = (row[colCodigo] || '').toUpperCase().trim();
+                if (codigo) codigos.add(codigo);
+            }
+
+            return Array.from(codigos);
+        } catch (e) {
+            console.error('No se pudieron cargar los códigos ya contados:', e);
+            return [];
         }
     },
 

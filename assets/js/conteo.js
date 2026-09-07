@@ -19,6 +19,9 @@ class ConteoManager {
         this._pintarTitulo();
         
         this.conteos = [];
+        // Códigos ya contados en la hoja de conteos de la sucursal actual.
+        // Solo se usan para la marca visual; no bloquean nuevos conteos.
+        this.codigosContados = new Set();
         this.productoSeleccionado = null;
         this.horaInicioConteo = null; // Se marca al seleccionar producto, no al iniciar sesión
         this.modoBarcode = false; // Se activa al presionar el botón flotante de código de barras
@@ -36,10 +39,14 @@ class ConteoManager {
         if (nombreEl) nombreEl.textContent = Auth.getUsuarioActual();
     }
     
-    init() {
+    async init() {
         this.setupEventListeners();
         this.initVenceWheel();
         this.ajustarOffsetBuscador();
+
+        // Mostrar los primeros 100 productos al entrar al formulario.
+        await this.cargarPrimerosProductos();
+
         this.actualizarContador(); // Carga el número real al entrar a la pantalla
     }
     
@@ -195,9 +202,48 @@ class ConteoManager {
     }
     
     // ================================================
+    // CARGA INICIAL - PRIMEROS 100 PRODUCTOS
+    // ================================================
+
+    async cargarPrimerosProductos() {
+        const productsList = document.getElementById('products-list');
+        if (!productsList) return;
+
+        productsList.innerHTML = `
+            <div class="empty-state">
+                <div class="mini-spinner"></div>
+                <p>Cargando productos...</p>
+            </div>
+        `;
+
+        const gidOlimpo = this.tipo === 'mercado'
+            ? CONFIG.GID_OLIMPO_MER
+            : CONFIG.GID_OLIMPO_FAR;
+
+        try {
+            const [productos, codigosContados] = await Promise.all([
+                SheetsAPI.getPrimerosProductos(gidOlimpo, 100),
+                SheetsAPI.getCodigosRegistrados(this.gidSucursal)
+            ]);
+
+            this.codigosContados = new Set(codigosContados);
+            this.productosIniciales = productos;
+            this.mostrarResultados(productos);
+        } catch (error) {
+            console.error('Error al cargar productos iniciales:', error);
+            productsList.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">⚠️</div>
+                    <p>${this.escapeHtml(error.message || 'No se pudieron cargar los productos')}</p>
+                </div>
+            `;
+        }
+    }
+
+    // ================================================
     // BÚSQUEDA
     // ================================================
-    
+
     async buscar(termino) {
         termino = termino.trim();
         const btnClear = document.getElementById('btn-clear-search');
@@ -272,30 +318,40 @@ class ConteoManager {
     crearTarjetaProducto(producto) {
         const card = document.createElement('div');
         card.className = 'product-card';
-        
-        const seleccionado = this.productoSeleccionado && 
+
+        const seleccionado = this.productoSeleccionado &&
                             this.productoSeleccionado.codigo === producto.codigo ? 'selected' : '';
-        
+        const yaContado = this.codigosContados.has(
+            String(producto.codigo || '').toUpperCase().trim()
+        );
+
         if (seleccionado) {
             card.classList.add('selected');
         }
-        
+        if (yaContado) {
+            card.classList.add('ya-contado');
+        }
+
+        // Guardamos el producto para poder redibujar la tarjeta después de guardar.
+        card._producto = producto;
+
         card.innerHTML = `
             <div class="product-info">
                 <div class="product-marca-small">${this.escapeHtml(producto.marca || 'Sin marca')}</div>
                 <div class="product-codigo">${this.escapeHtml(producto.codigo)}</div>
                 <div class="product-nombre">${this.escapeHtml(producto.nombre)}</div>
+                ${yaContado ? '<span class="product-counted-badge">✓ CONTADO</span>' : ''}
             </div>
             <div class="product-action">→</div>
         `;
-        
+
         card.addEventListener('click', () => {
             this.seleccionarProducto(producto, card);
         });
-        
+
         return card;
     }
-    
+
     limpiarResultados() {
         const productsList = document.getElementById('products-list');
         
@@ -635,6 +691,13 @@ class ConteoManager {
             
             if (resultado.success) {
                 this.conteos.push(datos);
+
+                // Marcar inmediatamente el código como contado.
+                const codigoGuardado = String(datos.codigo || '').toUpperCase().trim();
+                if (codigoGuardado) {
+                    this.codigosContados.add(codigoGuardado);
+                }
+
                 this.actualizarContador();
                 
                 // Calcular diferencia aquí (antes lo hacía PHP)
@@ -704,7 +767,17 @@ class ConteoManager {
             this.cerrarFormulario();
             this.actualizarContador();
             document.getElementById('search-input').value = '';
-            this.limpiarResultados();
+
+            const productosVisibles = Array.from(
+                document.querySelectorAll('#products-list .product-card')
+            ).map(card => card._producto).filter(Boolean);
+
+            if (productosVisibles.length > 0) {
+                this.mostrarResultados(productosVisibles);
+            } else {
+                this.cargarPrimerosProductos();
+            }
+
             document.getElementById('search-input').focus();
         });
     }

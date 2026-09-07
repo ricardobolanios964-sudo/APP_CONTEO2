@@ -852,6 +852,31 @@
     background: #F7FCEF;
 }
 
+/* Producto que ya fue contado: se distingue visualmente sin bloquearlo. */
+.product-card.ya-contado {
+    border-color: #3B82F6;
+    background: #EFF6FF;
+    box-shadow: 0 3px 10px rgba(59, 130, 246, 0.14);
+}
+
+.product-card.ya-contado .product-codigo {
+    color: #2563EB;
+}
+
+.product-counted-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #DBEAFE;
+    color: #1D4ED8;
+    border: 1px solid #BFDBFE;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
 .product-info {
     flex: 1;
     min-width: 0;
