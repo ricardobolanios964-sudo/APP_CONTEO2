@@ -221,7 +221,13 @@ class ConteoManager {
                 tipo = 'barcode';
             }
             
-            const productos = await SheetsAPI.buscarProducto(termino, tipo);
+            // La existencia se obtiene de la hoja OLIMPO correspondiente
+            // al formulario actual. No modifica la hoja donde se guardan los conteos.
+            const gidOlimpo = this.tipo === 'mercado'
+                ? CONFIG.GID_OLIMPO_MER
+                : CONFIG.GID_OLIMPO_FAR;
+
+            const productos = await SheetsAPI.buscarProducto(termino, tipo, gidOlimpo);
             
             // Si hay exactamente 1 producto y venía de código de barras, seleccionar automáticamente
             if (productos.length === 1 && tipo === 'barcode') {

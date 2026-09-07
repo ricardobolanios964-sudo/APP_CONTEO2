@@ -111,8 +111,11 @@ const SheetsAPI = {
     // OLIMPO (inventario)
     // ================================================
 
-    async getInventario() {
-        const filas = await this._fetchCSV(CONFIG.GID_OLIMPO, CONFIG.CACHE_TTL_OLIMPO);
+    async getInventario(gid) {
+        if (!gid) {
+            throw new Error('No se especificó la hoja OLIMPO para este formulario.');
+        }
+        const filas = await this._fetchCSV(gid, CONFIG.CACHE_TTL_OLIMPO);
         const datos = filas.slice(1);
 
         return datos
@@ -139,8 +142,8 @@ const SheetsAPI = {
     /**
      * Búsqueda con relevancia - misma lógica que sheetsmodel.php
      */
-    async buscarProducto(termino, tipoBusqueda = 'all') {
-        const inventario = await this.getInventario();
+    async buscarProducto(termino, tipoBusqueda = 'all', gid) {
+        const inventario = await this.getInventario(gid);
         const t = termino.toLowerCase().trim();
         const resultados = [];
 
