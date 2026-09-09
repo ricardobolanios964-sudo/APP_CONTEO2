@@ -16,7 +16,7 @@ CAMBIOS:
    - Se elimina cualquier etiqueta de prueba visible de versión.
 
 3. Pie de página:
-   - La versión visible se muestra como v2.4.0 donde existía el texto v2.5.0.
+   - La versión visible se muestra como v2.4.0 donde existía el texto v2.6.0.
 
 NO SE MODIFICÓ:
 - Buscador.

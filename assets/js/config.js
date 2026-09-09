@@ -21,5 +21,5 @@ const CONFIG = {
     // Caché en localStorage, en segundos (igual que hacía PHP con archivos)
     CACHE_TTL_OLIMPO: 20,
     CACHE_TTL_USUARIOS: 30,
-    CACHE_TTL_CONTEOS: 30,
+    CACHE_TTL_CONTEOS: 0,
 };

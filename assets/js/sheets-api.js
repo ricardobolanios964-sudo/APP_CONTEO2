@@ -27,8 +27,14 @@ const SheetsAPI = {
             }
         } catch (e) { /* si el caché está corrupto, seguimos y lo pisamos */ }
 
-        const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/export?format=csv&gid=${gid}`;
-        const response = await fetch(url);
+        let url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/export?format=csv&gid=${gid}`;
+        // Para las hojas de CONTEOS (TTL=0), forzar lectura fresca para que
+        // un registro existente siga apareciendo como CONTADO después de
+        // recargar, cerrar/reabrir o actualizar la PWA.
+        if (ttlSeconds === 0) {
+            url += `&cb=${Date.now()}`;
+        }
+        const response = await fetch(url, ttlSeconds === 0 ? { cache: 'no-store' } : undefined);
 
         if (!response.ok) {
             throw new Error(`No se pudo leer la hoja (HTTP ${response.status}). Verifica que el documento esté compartido como "Cualquiera con el enlace puede ver".`);
