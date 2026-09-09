@@ -2,7 +2,7 @@
   "name": "Farmacia Bolaños - Inventario",
   "short_name": "Bolaños",
   "description": "Sistema de Conteo de Inventario - Farmacia Bolaños",
-  "start_url": "./?app_version=2.6.0",
+  "start_url": "./?app_version=2.7.0",
   "display": "standalone",
   "background_color": "#FAFCFB",
   "theme_color": "#0D7377",
