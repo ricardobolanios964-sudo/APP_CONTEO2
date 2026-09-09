@@ -1,22 +1,51 @@
-APP_CONTEO2 - V2.4.0
+APP CONTEO2 - V2.4.0
+CORRECCION: PERSISTENCIA DE ESTADO CONTADO
 
-NUEVO:
-- Se mejora el sistema de actualización de la PWA.
-- Cuando se detecta una nueva versión, ahora se muestra un aviso sencillo:
-  "Nueva actualización detectada" + botón "Actualizar".
-- La actualización NO se ejecuta automáticamente.
-- El usuario decide cuándo pulsar "Actualizar".
-- El aviso se adapta a pantallas pequeñas.
-- Se vuelve a comprobar la versión al regresar a la aplicación después de dejarla en segundo plano.
-- Se mantiene la actualización mediante Service Worker y limpieza de caché al confirmar.
-- La sesión del usuario no se borra durante la actualización.
+OBJETIVO
+Los códigos que ya tienen un registro en la hoja de conteos de la sucursal
+deben mostrarse siempre como "CONTADO" al volver a entrar al formulario,
+recargar la página o actualizar la PWA.
 
-NO MODIFICADO:
-- Funciones de conteo.
+REGLA FUNCIONAL
+- Si CODIGO existe en la hoja de conteos correspondiente a Mercado, todos los
+  usuarios ven ese código como "✓ CONTADO" en Mercado.
+- Si CODIGO existe en la hoja de conteos correspondiente a Farmacia, todos los
+  usuarios ven ese código como "✓ CONTADO" en Farmacia.
+- La marca NO depende del usuario que realizó el conteo.
+- El contador "Conteos realizados" continúa siendo individual por usuario.
+- Si el registro se elimina de Google Sheets, la marca desaparecerá cuando la
+  aplicación vuelva a consultar la hoja.
+
+CORRECCION TECNICA
+1. Las funciones que leen registros de conteo ahora fuerzan una consulta fresca
+   a Google Sheets.
+2. Se ignora el localStorage para estas lecturas críticas.
+3. La URL CSV incluye un parámetro único de cache-busting.
+4. fetch utiliza cache:"no-store" y encabezados de no-cache para estas lecturas.
+5. Se conserva la separación de GID de Mercado y Farmacia.
+6. Se conserva la lógica existente que convierte los códigos registrados en un
+   Set y los compara con el código del producto.
+7. Se normaliza el encabezado CODIGO para tolerar BOM, espacios y mayúsculas.
+8. Al guardar un conteo se sigue limpiando el caché de la sucursal, sin cambiar
+   la lógica de guardado.
+
+NO SE MODIFICO
 - Búsqueda de productos.
-- Separación Mercado/Farmacia.
-- Productos iniciales y marcado CONTADO.
-- Conexión con Google Sheets.
-- Inicio de sesión y cierre de sesión.
-- Reportes, resumen y dashboard.
-- Demás funciones existentes de APP_CONTEO2.
+- Primeros 100 productos.
+- Lectura OLIMPO.
+- Registro/guardado de conteos.
+- Login.
+- Sesiones.
+- Cierre de sesión.
+- Reportes.
+- Resumen.
+- PWA, salvo el incremento de versión necesario.
+- GIDs existentes.
+
+VALIDACION ESPERADA
+Registrar código -> aparece CONTADO.
+Recargar -> continúa CONTADO.
+Cerrar y abrir -> continúa CONTADO.
+Actualizar PWA -> continúa CONTADO.
+Otro usuario -> también ve CONTADO.
+El contador por usuario conserva únicamente los conteos hechos por ese usuario.

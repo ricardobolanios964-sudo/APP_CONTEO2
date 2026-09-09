@@ -1,4 +1,4 @@
-const APP_VERSION = "2.7.0";
+const APP_VERSION = "2.4.0";
 const CACHE_NAME = `app-conteo2-${APP_VERSION}`;
 
 const APP_SHELL = [

@@ -76,7 +76,9 @@ El sistema usa `updateViaCache: "none"` y una comprobación de actualización al
 Cada cambio funcional debe aumentar la versión. Ejemplo:
 
 ```text
-2.3.1 → 2.4.0
+2.4.0 → 2.4.0
+2.4.0 → 2.2.2
+2.2.2 → 2.4.0
 ```
 
 Cuando se cambie la versión, hay que actualizar el número en los HTML y en `service-worker.js` / `pwa-update.js`.

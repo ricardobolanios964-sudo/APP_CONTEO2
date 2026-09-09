@@ -14,27 +14,32 @@ const SheetsAPI = {
      * Descarga y parsea el CSV de una hoja (por GID). Usa caché en
      * localStorage con expiración, igual que hacía PHP con archivos.
      */
-    async _fetchCSV(gid, ttlSeconds) {
+    async _fetchCSV(gid, ttlSeconds, forzarActualizacion = false) {
         const cacheKey = `bolanos_csv_${gid}`;
 
-        try {
-            const cached = localStorage.getItem(cacheKey);
-            if (cached) {
-                const parsed = JSON.parse(cached);
-                if (Date.now() - parsed.timestamp < ttlSeconds * 1000) {
-                    return parsed.data;
+        // Los registros de conteos son datos críticos. Cuando una función
+        // solicita una lectura forzada, se ignora por completo el caché local
+        // para reconstruir el estado desde Google Sheets.
+        if (!forzarActualizacion) {
+            try {
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    if (Date.now() - parsed.timestamp < ttlSeconds * 1000) {
+                        return parsed.data;
+                    }
                 }
-            }
-        } catch (e) { /* si el caché está corrupto, seguimos y lo pisamos */ }
-
-        let url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/export?format=csv&gid=${gid}`;
-        // Para las hojas de CONTEOS (TTL=0), forzar lectura fresca para que
-        // un registro existente siga apareciendo como CONTADO después de
-        // recargar, cerrar/reabrir o actualizar la PWA.
-        if (ttlSeconds === 0) {
-            url += `&cb=${Date.now()}`;
+            } catch (e) { /* si el caché está corrupto, seguimos y lo pisamos */ }
         }
-        const response = await fetch(url, ttlSeconds === 0 ? { cache: 'no-store' } : undefined);
+
+        const separadorCache = forzarActualizacion ? `&cb=${Date.now()}` : '';
+        const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/export?format=csv&gid=${gid}${separadorCache}`;
+        const response = await fetch(url, {
+            cache: forzarActualizacion ? 'no-store' : 'default',
+            headers: forzarActualizacion
+                ? { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+                : {}
+        });
 
         if (!response.ok) {
             throw new Error(`No se pudo leer la hoja (HTTP ${response.status}). Verifica que el documento esté compartido como "Cualquiera con el enlace puede ver".`);
@@ -231,38 +236,12 @@ const SheetsAPI = {
     // CONTEOS YA REGISTRADOS (Resumen + verificación de duplicados)
     // ================================================
 
-    _normalizarHeader(valor) {
-        return String(valor || '')
-            .replace(/^\uFEFF/, '')
-            .trim()
-            .toUpperCase()
-            .replace(/\s+/g, ' ');
-    },
-
-    _indiceColumna(headers, nombres) {
-        const normalizados = headers.map(h => this._normalizarHeader(h));
-        for (const nombre of nombres) {
-            const idx = normalizados.indexOf(this._normalizarHeader(nombre));
-            if (idx !== -1) return idx;
-        }
-        return -1;
-    },
-
     _extraerUsuarioDeId(idRegistro) {
-        const id = String(idRegistro || '').replace(/^\uFEFF/, '').trim();
-        if (!id) return null;
-
-        // Los nuevos registros usan:
-        // MERC-YYMMDD-HHMM-XXX-USUARIO
-        // FARM-YYMMDD-HHMM-XXX-USUARIO
-        if (id.indexOf('-') !== -1) {
-            const partes = id.split('-').filter(Boolean);
-            const ultimo = partes[partes.length - 1] || '';
-            return ultimo.trim().toLowerCase() || null;
+        if (idRegistro.indexOf('-') !== -1) {
+            const partes = idRegistro.split('-');
+            return partes[partes.length - 1].toLowerCase();
         }
-
-        // Compatibilidad con formatos antiguos.
-        const m = id.match(/^([a-zA-Z]+)\d+$/);
+        const m = idRegistro.match(/^([a-zA-Z]+)(\d+)$/);
         return m ? m[1].toLowerCase() : null;
     },
 
@@ -270,49 +249,28 @@ const SheetsAPI = {
         if (!gid) return { success: false, mensaje: 'Falta configurar el GID de esta hoja', conteos: {}, total: 0 };
 
         try {
-            const filas = await this._fetchCSV(gid, 0);
-            if (!filas.length) return { success: true, mensaje: 'OK', conteos: {}, total: 0 };
-
-            const headers = filas[0];
-            const colId = this._indiceColumna(headers, ['ID_REGISTRO', 'ID REGISTRO']);
-            const colUsuario = this._indiceColumna(headers, ['USUARIO', 'USUARIO_REGISTRO', 'EMPLEADO']);
-
-            if (colId === -1 && colUsuario === -1) {
-                return {
-                    success: false,
-                    mensaje: 'No se encontró la columna ID_REGISTRO/USUARIO en la hoja de conteos.',
-                    conteos: {},
-                    total: 0
-                };
-            }
-
+            const filas = await this._fetchCSV(gid, CONFIG.CACHE_TTL_CONTEOS, true);
+            const datos = filas.slice(1);
             const conteosPorUsuario = {};
             let total = 0;
 
-            for (const row of filas.slice(1)) {
-                if (!row || !row.some(v => String(v || '').trim())) continue;
-
-                let usuario = '';
-                if (colUsuario !== -1) {
-                    usuario = String(row[colUsuario] || '').replace(/^\uFEFF/, '').trim().toLowerCase();
+            for (const row of datos) {
+                const idRegistro = (row[0] || '').trim();
+                if (!idRegistro) continue;
+                const usuario = this._extraerUsuarioDeId(idRegistro);
+                if (usuario) {
+                    conteosPorUsuario[usuario] = (conteosPorUsuario[usuario] || 0) + 1;
+                    total++;
                 }
-                if (!usuario && colId !== -1) {
-                    usuario = this._extraerUsuarioDeId(row[colId]);
-                }
-
-                if (!usuario) continue;
-
-                conteosPorUsuario[usuario] = (conteosPorUsuario[usuario] || 0) + 1;
-                total++;
             }
 
+            // Ordenar de mayor a menor
             const ordenado = Object.fromEntries(
                 Object.entries(conteosPorUsuario).sort((a, b) => b[1] - a[1])
             );
 
             return { success: true, mensaje: 'OK', conteos: ordenado, total };
         } catch (e) {
-            console.error('Error leyendo conteos por usuario:', e);
             return { success: false, mensaje: e.message, conteos: {}, total: 0 };
         }
     },
@@ -321,50 +279,43 @@ const SheetsAPI = {
         if (!gid || !codigo) return { configurado: false, ya_registrado: false, veces: 0 };
 
         try {
-            const filas = await this._fetchCSV(gid, 0);
-            if (!filas.length) return { configurado: true, ya_registrado: false, veces: 0 };
+            const filas = await this._fetchCSV(gid, CONFIG.CACHE_TTL_CONTEOS, true);
+            const datos = filas.slice(1);
+            const headers = filas[0].map(h => String(h || '').replace(/^\uFEFF/, '').trim().toUpperCase());
+            const colCodigo = headers.indexOf('CODIGO');
+            if (colCodigo === -1) return { configurado: false, ya_registrado: false, veces: 0 };
 
-            const colCodigo = this._indiceColumna(filas[0], ['CODIGO', 'CÓDIGO', 'CODIGO PRODUCTO']);
-            if (colCodigo === -1) {
-                return { configurado: false, ya_registrado: false, veces: 0 };
-            }
-
-            const codigoBuscado = String(codigo).replace(/^\uFEFF/, '').trim().toUpperCase();
+            const codigoBuscado = codigo.toUpperCase().trim();
             let veces = 0;
-
-            for (const row of filas.slice(1)) {
-                const codigoFila = String(row[colCodigo] || '').replace(/^\uFEFF/, '').trim().toUpperCase();
-                if (codigoFila === codigoBuscado) veces++;
+            for (const row of datos) {
+                if ((row[colCodigo] || '').toUpperCase().trim() === codigoBuscado) veces++;
             }
 
             return { configurado: true, ya_registrado: veces > 0, veces };
         } catch (e) {
-            console.error('Error verificando código registrado:', e);
             return { configurado: false, ya_registrado: false, veces: 0 };
         }
     },
 
+    /**
+     * Devuelve los códigos ya registrados en la hoja de conteos
+     * de la sucursal actual para marcarlos visualmente en la lista.
+     */
     async getCodigosRegistrados(gid) {
         if (!gid) return [];
 
         try {
-            const filas = await this._fetchCSV(gid, 0);
+            const filas = await this._fetchCSV(gid, CONFIG.CACHE_TTL_CONTEOS, true);
             if (!filas.length) return [];
 
-            const colCodigo = this._indiceColumna(filas[0], ['CODIGO', 'CÓDIGO', 'CODIGO PRODUCTO']);
-            if (colCodigo === -1) {
-                console.warn('No se encontró la columna CODIGO en la hoja de conteos.');
-                return [];
-            }
+            const headers = filas[0].map(h => String(h || '').replace(/^\uFEFF/, '').trim().toUpperCase());
+            const colCodigo = headers.indexOf('CODIGO');
+            if (colCodigo === -1) return [];
 
             const codigos = new Set();
 
             for (const row of filas.slice(1)) {
-                const codigo = String(row[colCodigo] || '')
-                    .replace(/^\uFEFF/, '')
-                    .trim()
-                    .toUpperCase();
-
+                const codigo = (row[colCodigo] || '').toUpperCase().trim();
                 if (codigo) codigos.add(codigo);
             }
 
