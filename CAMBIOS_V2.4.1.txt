@@ -1,0 +1,36 @@
+APP_CONTEO2 V2.4.1
+CORRECCION ESPECIFICA: MARCA CONTADO DESDE GOOGLE SHEETS
+
+BASE
+Esta versión parte directamente de V2.3.1.
+
+OBJETIVO
+Si un código existe en INVENTARIO_MER o INVENTARIO_FAR, el formulario debe
+mostrarlo como CONTADO aunque la página haya sido recargada, la app haya sido
+cerrada/reabierta o la PWA haya sido actualizada.
+
+CORRECCION
+- Para las hojas de conteos se consulta la pestaña por su nombre real:
+  INVENTARIO_MER / INVENTARIO_FAR.
+- Se usa Google Visualization como lectura principal y export CSV por GID como
+  respaldo.
+- Se desactiva el cache del navegador para estas lecturas.
+- Se valida que la respuesta contenga CODIGO o ID_REGISTRO antes de aceptarla.
+- CODIGO se identifica por nombre de encabezado y tolera BOM, espacios
+  especiales, mayúsculas/minúsculas y variantes con acento.
+- Los códigos encontrados se cargan en codigosContados al abrir el formulario.
+- La marca CONTADO sigue siendo global: si cualquier usuario registró el código,
+  todos los usuarios lo ven como CONTADO.
+- El contador por usuario continúa separado y se calcula desde los registros.
+
+NO SE MODIFICO
+- Guardado de conteos.
+- Búsqueda.
+- Inventarios OLIMPO.
+- Mercado/Farmacia.
+- Login.
+- Sesión.
+- Reportes.
+- Resumen.
+- Cierre de sesión.
+- PWA, salvo el número de versión.

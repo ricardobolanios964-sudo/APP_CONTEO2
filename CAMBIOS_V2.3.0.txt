@@ -1,4 +1,4 @@
-APP_CONTEO2 V2.4.0
+APP_CONTEO2 V2.4.1
 
 1. ACTUALIZACION PWA MULTINAVEGADOR
 - Se incorpora comprobacion de version mediante version.json.

@@ -1,6 +1,6 @@
 /*
  * APP_CONTEO2 - Control de actualización de PWA
- * Versión 2.4.0
+ * Versión 2.4.1
  *
  * Comprueba la versión publicada desde version.json. Si hay una versión
  * nueva, bloquea la aplicación hasta completar la actualización.
@@ -8,7 +8,7 @@
 (function () {
     'use strict';
 
-    var APP_VERSION = '2.4.0';
+    var APP_VERSION = '2.4.1';
     var checking = false;
     var updating = false;
 

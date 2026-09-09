@@ -14,13 +14,14 @@ const SheetsAPI = {
      * Descarga y parsea el CSV de una hoja (por GID). Usa caché en
      * localStorage con expiración, igual que hacía PHP con archivos.
      */
-    async _fetchCSV(gid, ttlSeconds, forzarActualizacion = false) {
+    async _fetchCSV(gid, ttlSeconds) {
         const cacheKey = `bolanos_csv_${gid}`;
 
-        // Los registros de conteos son datos críticos. Cuando una función
-        // solicita una lectura forzada, se ignora por completo el caché local
-        // para reconstruir el estado desde Google Sheets.
-        if (!forzarActualizacion) {
+        // Inventarios de conteo: Google Sheets es la fuente de verdad.
+        // No reutilizamos datos viejos del navegador para esta lectura.
+        const esConteo = gid === CONFIG.GID_INVENTARIO_MER || gid === CONFIG.GID_INVENTARIO_FAR;
+
+        if (!esConteo) {
             try {
                 const cached = localStorage.getItem(cacheKey);
                 if (cached) {
@@ -29,35 +30,89 @@ const SheetsAPI = {
                         return parsed.data;
                     }
                 }
-            } catch (e) { /* si el caché está corrupto, seguimos y lo pisamos */ }
+            } catch (e) { /* caché corrupto: continuar con red */ }
         }
 
-        const separadorCache = forzarActualizacion ? `&cb=${Date.now()}` : '';
-        const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/export?format=csv&gid=${gid}${separadorCache}`;
-        const response = await fetch(url, {
-            cache: forzarActualizacion ? 'no-store' : 'default',
-            headers: forzarActualizacion
-                ? { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-                : {}
-        });
+        const nombreHoja = gid === CONFIG.GID_INVENTARIO_MER
+            ? 'INVENTARIO_MER'
+            : gid === CONFIG.GID_INVENTARIO_FAR
+                ? 'INVENTARIO_FAR'
+                : null;
 
-        if (!response.ok) {
-            throw new Error(`No se pudo leer la hoja (HTTP ${response.status}). Verifica que el documento esté compartido como "Cualquiera con el enlace puede ver".`);
+        const urls = [];
+
+        // Para conteos usamos el NOMBRE REAL de la pestaña. Esto evita que
+        // un GID antiguo o cambiado haga que la app lea otra hoja.
+        if (nombreHoja) {
+            urls.push(
+                `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(nombreHoja)}&tq=${encodeURIComponent('select *')}&cb=${Date.now()}`
+            );
         }
 
-        const texto = await response.text();
+        // Respaldo por GID para las hojas fuente y para mantener compatibilidad.
+        urls.push(
+            `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/export?format=csv&gid=${gid}&cb=${Date.now()}`
+        );
 
-        if (texto.trim().toLowerCase().startsWith('<!doctype') || texto.trim().toLowerCase().startsWith('<html')) {
-            throw new Error('Google devolvió una página HTML en vez de datos. Verifica que el documento esté compartido públicamente.');
+        let ultimoError = null;
+
+        for (const url of urls) {
+            try {
+                const response = await fetch(url, {
+                    cache: 'no-store',
+                    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+                });
+
+                if (!response.ok) {
+                    ultimoError = new Error(`No se pudo leer la hoja (HTTP ${response.status}).`);
+                    continue;
+                }
+
+                const texto = await response.text();
+                const limpio = texto.trim().toLowerCase();
+
+                if (limpio.startsWith('<!doctype') || limpio.startsWith('<html')) {
+                    ultimoError = new Error('Google devolvió HTML en vez de datos.');
+                    continue;
+                }
+
+                const data = this._parseCSV(texto);
+
+                // Una hoja de conteos válida debe tener encabezados. Si la
+                // consulta por nombre funciona, devolvemos ese contenido.
+                if (data.length > 0) {
+                    if (esConteo) {
+                        const headers = data[0].map(h =>
+                            String(h || '')
+                                .replace(/^\uFEFF/, '')
+                                .replace(/\u00A0/g, ' ')
+                                .trim()
+                                .toUpperCase()
+                        );
+
+                        const tieneCodigo = headers.includes('CODIGO');
+                        const tieneId = headers.includes('ID_REGISTRO') || headers.includes('ID REGISTRO');
+
+                        if (tieneCodigo || tieneId) {
+                            // Para conteos no guardamos una copia vieja.
+                            return data;
+                        }
+                    } else {
+                        try {
+                            localStorage.setItem(cacheKey, JSON.stringify({
+                                timestamp: Date.now(),
+                                data
+                            }));
+                        } catch (e) {}
+                        return data;
+                    }
+                }
+            } catch (e) {
+                ultimoError = e;
+            }
         }
 
-        const data = this._parseCSV(texto);
-
-        try {
-            localStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data }));
-        } catch (e) { /* si se llena el localStorage, no pasa nada grave */ }
-
-        return data;
+        throw (ultimoError || new Error('No se pudo leer la hoja de Google Sheets.'));
     },
 
     /**
@@ -249,14 +304,15 @@ const SheetsAPI = {
         if (!gid) return { success: false, mensaje: 'Falta configurar el GID de esta hoja', conteos: {}, total: 0 };
 
         try {
-            const filas = await this._fetchCSV(gid, CONFIG.CACHE_TTL_CONTEOS, true);
+            const filas = await this._fetchCSV(gid, CONFIG.CACHE_TTL_CONTEOS);
             const datos = filas.slice(1);
             const conteosPorUsuario = {};
             let total = 0;
 
             for (const row of datos) {
-                const idRegistro = (row[0] || '').trim();
+                const idRegistro = String(row[0] || '').replace(/^\uFEFF/, '').trim();
                 if (!idRegistro) continue;
+
                 const usuario = this._extraerUsuarioDeId(idRegistro);
                 if (usuario) {
                     conteosPorUsuario[usuario] = (conteosPorUsuario[usuario] || 0) + 1;
@@ -264,13 +320,13 @@ const SheetsAPI = {
                 }
             }
 
-            // Ordenar de mayor a menor
             const ordenado = Object.fromEntries(
                 Object.entries(conteosPorUsuario).sort((a, b) => b[1] - a[1])
             );
 
             return { success: true, mensaje: 'OK', conteos: ordenado, total };
         } catch (e) {
+            console.error('No se pudieron cargar los conteos por usuario:', e);
             return { success: false, mensaje: e.message, conteos: {}, total: 0 };
         }
     },
@@ -279,46 +335,86 @@ const SheetsAPI = {
         if (!gid || !codigo) return { configurado: false, ya_registrado: false, veces: 0 };
 
         try {
-            const filas = await this._fetchCSV(gid, CONFIG.CACHE_TTL_CONTEOS, true);
-            const datos = filas.slice(1);
-            const headers = filas[0].map(h => String(h || '').replace(/^\uFEFF/, '').trim().toUpperCase());
-            const colCodigo = headers.indexOf('CODIGO');
+            const filas = await this._fetchCSV(gid, CONFIG.CACHE_TTL_CONTEOS);
+            if (!filas.length) return { configurado: true, ya_registrado: false, veces: 0 };
+
+            const headers = filas[0].map(h => String(h || '')
+                .replace(/^\uFEFF/, '')
+                .replace(/\u00A0/g, ' ')
+                .trim()
+                .toUpperCase());
+
+            const colCodigo = headers.findIndex(h =>
+                h === 'CODIGO' || h === 'CÓDIGO' ||
+                h === 'CODIGO PRODUCTO' || h === 'CÓDIGO PRODUCTO'
+            );
+
             if (colCodigo === -1) return { configurado: false, ya_registrado: false, veces: 0 };
 
-            const codigoBuscado = codigo.toUpperCase().trim();
+            const codigoBuscado = String(codigo)
+                .replace(/^\uFEFF/, '')
+                .replace(/\u00A0/g, ' ')
+                .trim()
+                .toUpperCase();
+
             let veces = 0;
-            for (const row of datos) {
-                if ((row[colCodigo] || '').toUpperCase().trim() === codigoBuscado) veces++;
+
+            for (const row of filas.slice(1)) {
+                const codigoFila = String(row[colCodigo] || '')
+                    .replace(/^\uFEFF/, '')
+                    .replace(/\u00A0/g, ' ')
+                    .trim()
+                    .toUpperCase();
+
+                if (codigoFila === codigoBuscado) veces++;
             }
 
             return { configurado: true, ya_registrado: veces > 0, veces };
         } catch (e) {
+            console.error('Error verificando código registrado:', e);
             return { configurado: false, ya_registrado: false, veces: 0 };
         }
     },
 
-    /**
-     * Devuelve los códigos ya registrados en la hoja de conteos
-     * de la sucursal actual para marcarlos visualmente en la lista.
-     */
     async getCodigosRegistrados(gid) {
         if (!gid) return [];
 
         try {
-            const filas = await this._fetchCSV(gid, CONFIG.CACHE_TTL_CONTEOS, true);
+            const filas = await this._fetchCSV(gid, CONFIG.CACHE_TTL_CONTEOS);
             if (!filas.length) return [];
 
-            const headers = filas[0].map(h => String(h || '').replace(/^\uFEFF/, '').trim().toUpperCase());
-            const colCodigo = headers.indexOf('CODIGO');
-            if (colCodigo === -1) return [];
+            const normalizarHeader = h => String(h || '')
+                .replace(/^\uFEFF/, '')
+                .replace(/\u00A0/g, ' ')
+                .trim()
+                .toUpperCase();
+
+            const headers = filas[0].map(normalizarHeader);
+            const colCodigo = headers.findIndex(h =>
+                h === 'CODIGO' ||
+                h === 'CÓDIGO' ||
+                h === 'CODIGO PRODUCTO' ||
+                h === 'CÓDIGO PRODUCTO'
+            );
+
+            if (colCodigo === -1) {
+                console.error('La hoja de conteos fue leída, pero no existe la columna CODIGO.', headers);
+                return [];
+            }
 
             const codigos = new Set();
 
             for (const row of filas.slice(1)) {
-                const codigo = (row[colCodigo] || '').toUpperCase().trim();
+                const codigo = String(row[colCodigo] || '')
+                    .replace(/^\uFEFF/, '')
+                    .replace(/\u00A0/g, ' ')
+                    .trim()
+                    .toUpperCase();
+
                 if (codigo) codigos.add(codigo);
             }
 
+            console.info(`APP_CONTEO2: ${codigos.size} códigos registrados detectados en GID ${gid}.`);
             return Array.from(codigos);
         } catch (e) {
             console.error('No se pudieron cargar los códigos ya contados:', e);
