@@ -567,6 +567,40 @@ class ConteoManager {
         // (no bloquea nada, solo informa - puede haber el mismo producto
         // en distintas ubicaciones y es válido contarlo de nuevo)
         this.verificarProductoYaContado();
+        
+        // Unidades de medida del producto (hoja UNIDADES_MEDIDA), también en segundo plano
+        this.cargarUnidadesMedida();
+    }
+    
+    async cargarUnidadesMedida() {
+        const box = document.getElementById('um-box');
+        const lista = document.getElementById('um-lista');
+        if (!box || !lista) return;
+        
+        box.style.display = 'none';
+        lista.innerHTML = '';
+        
+        const codigo = document.getElementById('form-codigo').textContent;
+        if (!codigo || codigo === '—') return;
+        
+        try {
+            const unidades = await SheetsAPI.getUnidadesMedida(codigo);
+            
+            // Si mientras cargaba se abrió otro producto, descartar este resultado
+            if (document.getElementById('form-codigo').textContent !== codigo) return;
+            if (!unidades || unidades.length === 0) return;
+            
+            lista.innerHTML = unidades.map(u => `
+                <span class="um-chip">
+                    <span class="um-chip-nombre">${this.escapeHtml(u.presentacion || 'UNIDAD')}</span>
+                    ${u.unidades ? `<span class="um-chip-valor">${this.escapeHtml(u.unidades)}</span>` : ''}
+                </span>
+            `).join('');
+            box.style.display = 'block';
+        } catch (error) {
+            // Si falla, simplemente no se muestra el bloque (no interrumpe el conteo)
+            console.warn('No se pudieron cargar las unidades de medida:', error.message || error);
+        }
     }
     
     async verificarProductoYaContado() {

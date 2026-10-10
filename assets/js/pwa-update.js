@@ -1,56 +1,106 @@
 /*
  * APP_CONTEO2 - Control de actualización de PWA
- * Versión 2.6.1
+ * Versión 2.7.0
  *
  * Comprueba la versión publicada desde version.json. Si hay una versión
- * nueva, bloquea la aplicación hasta completar la actualización.
+ * nueva, muestra un aviso con el número de versión. El aviso permanece en
+ * pantalla hasta que el usuario lo cierre o pulse "Actualizar ahora".
  */
 (function () {
     'use strict';
 
-    var APP_VERSION = '2.6.1';
+    var APP_VERSION = '2.7.0';
     var checking = false;
     var updating = false;
 
+    function avisoYaCerrado(versionNueva) {
+        try {
+            return sessionStorage.getItem('app_conteo2_aviso_cerrado') === String(versionNueva);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function recordarAvisoCerrado(versionNueva) {
+        try {
+            sessionStorage.setItem('app_conteo2_aviso_cerrado', String(versionNueva));
+        } catch (e) { /* sin almacenamiento: el aviso podrá volver a mostrarse */ }
+    }
+
+    function cerrarAviso(versionNueva) {
+        if (updating) return;
+        var overlay = document.getElementById('pwa-update-required');
+        if (overlay) overlay.remove();
+        document.removeEventListener('keydown', teclaCerrarAviso);
+        recordarAvisoCerrado(versionNueva);
+    }
+
+    var versionAvisoActual = null;
+
+    function teclaCerrarAviso(e) {
+        if (e.key === 'Escape' && versionAvisoActual) cerrarAviso(versionAvisoActual);
+    }
+
     function crearAvisoActualizacion(versionNueva) {
         if (document.getElementById('pwa-update-required')) return;
+        versionAvisoActual = versionNueva;
 
         var overlay = document.createElement('div');
         overlay.id = 'pwa-update-required';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'pwa-update-title');
         overlay.innerHTML = `
-            <div style="
+            <div id="pwa-update-backdrop" style="
                 position:fixed; inset:0; z-index:100000;
                 background:rgba(15,23,42,.72);
                 display:flex; align-items:center; justify-content:center;
                 padding:24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
             ">
                 <div style="
+                    position:relative;
                     width:min(420px,100%); background:#fff; border-radius:20px;
-                    padding:30px 24px; text-align:center;
+                    padding:30px 24px 24px; text-align:center;
                     box-shadow:0 25px 60px rgba(0,0,0,.25);
                 ">
+                    <button id="pwa-update-close" type="button" aria-label="Cerrar aviso" style="
+                        position:absolute; top:10px; right:10px;
+                        width:36px; height:36px; border:0; border-radius:50%;
+                        background:#F3F4F6; color:#6B7280; font-size:18px;
+                        line-height:1; cursor:pointer;
+                    ">✕</button>
                     <div style="
                         width:64px;height:64px;margin:0 auto 18px;border-radius:50%;
                         display:flex;align-items:center;justify-content:center;
                         background:#E6FFFA;color:#0D7377;font-size:30px;
                     ">↻</div>
-                    <h2 style="margin:0 0 10px;color:#1F2937;font-size:22px;">
-                        Nueva actualización disponible
+                    <h2 id="pwa-update-title" style="margin:0 0 10px;color:#1F2937;font-size:22px;">
+                        Se detectó una nueva actualización
                     </h2>
                     <p style="margin:0 0 8px;color:#6B7280;line-height:1.5;">
                         Hay una nueva versión de APP CONTEO disponible.
                     </p>
-                    <p style="margin:0 0 22px;color:#0D7377;font-weight:700;">
+                    <p style="margin:0 0 4px;color:#0D7377;font-weight:700;font-size:18px;">
                         Versión ${versionNueva}
+                    </p>
+                    <p style="margin:0 0 22px;color:#9CA3AF;font-size:13px;">
+                        Tu versión actual: ${APP_VERSION}
                     </p>
                     <button id="pwa-update-button" type="button" style="
                         width:100%; border:0; border-radius:12px; padding:14px 18px;
                         background:linear-gradient(135deg,#0D7377,#0A5A67);
                         color:#fff;font-size:16px;font-weight:700;cursor:pointer;
                     ">
-                        Actualizar aplicación
+                        Actualizar ahora
                     </button>
-                    <p id="pwa-update-status" style="margin:14px 0 0;color:#9CA3AF;font-size:12px;"></p>
+                    <button id="pwa-update-later" type="button" style="
+                        width:100%; margin-top:10px; border:0; border-radius:12px; padding:12px 18px;
+                        background:transparent; color:#6B7280;
+                        font-size:15px;font-weight:600;cursor:pointer;
+                    ">
+                        Más tarde
+                    </button>
+                    <p id="pwa-update-status" style="margin:12px 0 0;color:#9CA3AF;font-size:12px;"></p>
                 </div>
             </div>
         `;
@@ -60,6 +110,16 @@
         document.getElementById('pwa-update-button').addEventListener('click', function () {
             actualizarAplicacion(versionNueva);
         });
+        document.getElementById('pwa-update-close').addEventListener('click', function () {
+            cerrarAviso(versionNueva);
+        });
+        document.getElementById('pwa-update-later').addEventListener('click', function () {
+            cerrarAviso(versionNueva);
+        });
+        document.getElementById('pwa-update-backdrop').addEventListener('click', function (e) {
+            if (e.target.id === 'pwa-update-backdrop') cerrarAviso(versionNueva);
+        });
+        document.addEventListener('keydown', teclaCerrarAviso);
     }
 
     async function actualizarAplicacion(versionNueva) {
@@ -158,7 +218,7 @@
             var datos = await respuesta.json();
             var versionNueva = String(datos.version || '').trim();
 
-            if (versionNueva && versionNueva !== APP_VERSION) {
+            if (versionNueva && versionNueva !== APP_VERSION && !avisoYaCerrado(versionNueva)) {
                 crearAvisoActualizacion(versionNueva);
             }
         } catch (error) {
@@ -180,7 +240,14 @@
             });
         });
 
+        // Si ya había un Service Worker controlando la página, el cambio es una
+        // ACTUALIZACIÓN: no se recarga sola, para que el aviso no desaparezca
+        // y el usuario decida cuándo actualizar. Solo la primera instalación
+        // (sin controlador previo) conserva la recarga original.
+        var teniaControlador = !!navigator.serviceWorker.controller;
+
         navigator.serviceWorker.addEventListener('controllerchange', function () {
+            if (teniaControlador) return;
             if (!updating) {
                 window.location.reload();
             }

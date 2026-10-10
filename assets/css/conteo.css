@@ -1261,3 +1261,48 @@
         font-size: 1rem;
     }
 }
+
+/* UNIDADES DE MEDIDA (dentro de la tarjeta del producto) */
+
+.um-box {
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px dashed #BFE3DC;
+}
+
+.um-label {
+    display: block;
+    font-size: 0.7rem;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 6px;
+}
+
+.um-lista {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.um-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    border: 1px solid #D1EDE8;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    line-height: 1.2;
+}
+
+.um-chip-nombre {
+    color: var(--dark);
+    font-weight: 600;
+}
+
+.um-chip-valor {
+    color: var(--primary);
+    font-weight: 700;
+}

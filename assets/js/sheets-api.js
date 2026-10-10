@@ -189,6 +189,76 @@ const SheetsAPI = {
     },
 
     // ================================================
+    // UNIDADES DE MEDIDA (hoja UNIDADES_MEDIDA)
+    // Columnas: Codigo Producto | Nombre Producto | Presentaciones | Unidades
+    // Un producto puede tener varias filas (una por unidad de medida).
+    // ================================================
+
+    /**
+     * Devuelve las unidades de medida de un producto:
+     *   [{ presentacion: 'BLISTER X 10', unidades: '0.333' }, ...]
+     * La hoja se descarga una sola vez y se indexa por código en memoria.
+     * Si falla la descarga y ya había datos, se conservan los anteriores.
+     */
+    async getUnidadesMedida(codigo) {
+        if (!CONFIG.GID_UNIDADES_MEDIDA || !codigo) return [];
+
+        const ttl = CONFIG.CACHE_TTL_UNIDADES || 300;
+        const vencido = !this._umMapa || (Date.now() - this._umTs) > ttl * 1000;
+
+        if (vencido) {
+            if (!this._umPendiente) {
+                this._umPendiente = this._fetchCSV(CONFIG.GID_UNIDADES_MEDIDA, ttl)
+                    .then(filas => {
+                        this._umMapa = this._indexarUnidadesMedida(filas);
+                        this._umTs = Date.now();
+                    })
+                    .finally(() => { this._umPendiente = null; });
+            }
+            try {
+                await this._umPendiente;
+            } catch (e) {
+                if (!this._umMapa) throw e; // sin datos previos: que lo maneje quien llama
+            }
+        }
+
+        const clave = String(codigo).replace(/^\uFEFF/, '').replace(/\u00A0/g, ' ').trim().toUpperCase();
+        return this._umMapa.get(clave) || [];
+    },
+
+    _indexarUnidadesMedida(filas) {
+        const norm = h => String(h || '').replace(/^\uFEFF/, '').replace(/\u00A0/g, ' ').trim().toUpperCase();
+        const headers = (filas[0] || []).map(norm);
+
+        const buscar = (opciones, porDefecto) => {
+            const i = headers.findIndex(h => opciones.includes(h));
+            return i !== -1 ? i : porDefecto;
+        };
+        const colCodigo = buscar(['CODIGO PRODUCTO', 'CÓDIGO PRODUCTO', 'CODIGO', 'CÓDIGO'], 0);
+        const colPresent = buscar(['PRESENTACIONES', 'PRESENTACION', 'PRESENTACIÓN'], 2);
+        const colUnidades = buscar(['UNIDADES', 'UNIDAD'], 3);
+
+        const mapa = new Map();
+
+        for (const fila of filas.slice(1)) {
+            const codigo = norm(fila[colCodigo]);
+            const presentacion = String(fila[colPresent] || '').trim();
+            const unidades = String(fila[colUnidades] || '').trim();
+            if (!codigo || (!presentacion && !unidades)) continue;
+
+            if (!mapa.has(codigo)) mapa.set(codigo, []);
+            const lista = mapa.get(codigo);
+
+            // Evitar filas idénticas repetidas
+            if (!lista.some(u => u.presentacion === presentacion && u.unidades === unidades)) {
+                lista.push({ presentacion, unidades });
+            }
+        }
+
+        return mapa;
+    },
+
+    // ================================================
     // OLIMPO (inventario)
     // ================================================
 

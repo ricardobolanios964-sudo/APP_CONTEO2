@@ -1,0 +1,40 @@
+APP_CONTEO2 V2.7.0
+AVISO DE ACTUALIZACION + UNIDADES DE MEDIDA
+
+BASE
+Esta version parte directamente de V2.6.1.
+
+1) AVISO DE ACTUALIZACION (pwa-update.js)
+PROBLEMA
+Al publicar una version nueva, el aviso aparecia un instante y desaparecia: el
+Service Worker nuevo tomaba el control y la pagina se recargaba sola
+(controllerchange), antes de que el usuario pudiera leerlo.
+
+CORRECCION
+- Si ya habia un Service Worker controlando la pagina (es decir, es una
+  actualizacion), la pagina ya NO se recarga sola.
+- El aviso dice "Se detecto una nueva actualizacion" y muestra la version nueva
+  y la version actual.
+- Permanece en pantalla hasta que el usuario lo cierre (X, "Mas tarde", tecla Esc
+  o tocar fuera) o pulse "Actualizar ahora".
+- Si lo cierra, no reaparece durante esa sesion (se recuerda en sessionStorage).
+- La primera instalacion del Service Worker conserva su comportamiento anterior.
+
+2) UNIDADES DE MEDIDA EN EL FORMULARIO DEL PRODUCTO
+- Nueva hoja de lectura: UNIDADES_MEDIDA (GID 1635530234), columnas:
+  Codigo Producto | Nombre Producto | Presentaciones | Unidades.
+- Un producto puede tener varias filas; en el formulario aparecen como etiquetas
+  compactas debajo de los datos del producto (ej.: "BLISTER X 10  0.333").
+- Si el producto no tiene unidades de medida, el bloque no se muestra.
+- Si la hoja no se puede leer, el formulario funciona igual (sin el bloque).
+- La hoja se descarga una sola vez, se indexa por codigo y se refresca cada
+  5 minutos (CACHE_TTL_UNIDADES en config.js).
+- No se modifica lo que se guarda en INVENTARIO_*.
+
+ARCHIVOS MODIFICADOS
+config.js, sheets-api.js, conteo.js, conteo.html, conteo.css (solo reglas nuevas),
+pwa-update.js, README.md y el numero de version (HTML, manifest, service worker,
+version.json, VERSION.txt).
+
+NO SE MODIFICO
+Login, sesion, busqueda, escaner, guardado, resumen, reportes, Apps Script.
