@@ -12,9 +12,11 @@ class ConteoManager {
         // ej: conteo.html?tipo=mercado
         const params = new URLSearchParams(window.location.search);
         this.tipo = (params.get('tipo') || 'mercado').toLowerCase();
-        if (!['mercado', 'farmacia'].includes(this.tipo)) this.tipo = 'mercado';
+        if (!['mercado', 'farmacia', 'bodega'].includes(this.tipo)) this.tipo = 'mercado';
         
-        this.gidSucursal = this.tipo === 'mercado' ? CONFIG.GID_INVENTARIO_MER : CONFIG.GID_INVENTARIO_FAR;
+        this.gidSucursal = this.tipo === 'mercado'
+            ? CONFIG.GID_INVENTARIO_MER
+            : (this.tipo === 'bodega' ? CONFIG.GID_INVENTARIO_BC : CONFIG.GID_INVENTARIO_FAR);
         
         this._pintarTitulo();
         
@@ -23,6 +25,9 @@ class ConteoManager {
         // Solo se usan para la marca visual; no bloquean nuevos conteos.
         this.codigosContados = new Set();
         this.productoSeleccionado = null;
+        // Códigos guardados por ESTA sesión que Sheets quizá aún no muestra (evita parpadeo de la marca)
+        this._guardadosRecientes = new Map();
+        this._ultimaEscritura = 0;
         this.horaInicioConteo = null; // Se marca al seleccionar producto, no al iniciar sesión
         this.modoBarcode = false; // Se activa al presionar el botón flotante de código de barras
         this.venceMes = null; // Mes seleccionado en la rueda (1-12)
@@ -48,6 +53,9 @@ class ConteoManager {
         await this.cargarPrimerosProductos();
 
         this.actualizarContador(); // Carga el número real al entrar a la pantalla
+
+        // Mantener la pantalla sincronizada con las hojas de Google Sheets
+        this.iniciarActualizacionEnVivo();
     }
     
     /**
@@ -82,6 +90,7 @@ class ConteoManager {
         let debounceTimer = null;
         document.getElementById('search-input').addEventListener('input', (e) => {
             const valor = e.target.value;
+            this._ultimaEscritura = Date.now();
             
             // Feedback visual inmediato de "escribiendo..."
             if (valor.trim().length > 0) {
@@ -208,7 +217,7 @@ class ConteoManager {
 
         const gidOlimpo = this.tipo === 'mercado'
             ? CONFIG.GID_OLIMPO_MER
-            : CONFIG.GID_OLIMPO_FAR;
+            : (this.tipo === 'bodega' ? CONFIG.GID_OLIMPO_BC : CONFIG.GID_OLIMPO_FAR);
 
         try {
             const [productos, codigosContados] = await Promise.all([
@@ -261,7 +270,7 @@ class ConteoManager {
             // al formulario actual. No modifica la hoja donde se guardan los conteos.
             const gidOlimpo = this.tipo === 'mercado'
                 ? CONFIG.GID_OLIMPO_MER
-                : CONFIG.GID_OLIMPO_FAR;
+                : (this.tipo === 'bodega' ? CONFIG.GID_OLIMPO_BC : CONFIG.GID_OLIMPO_FAR);
 
             const productos = await SheetsAPI.buscarProducto(termino, tipo, gidOlimpo);
             
@@ -631,7 +640,8 @@ class ConteoManager {
     async guardarConteo() {
         const cantidad = document.getElementById('form-cantidad').value;
         
-        if (!cantidad || cantidad === '0') {
+        // Se permite 0 (producto sin existencia física). Solo se rechaza vacío o no numérico.
+        if (cantidad === '' || isNaN(parseFloat(cantidad))) {
             this.mostrarError('Debe ingresar la cantidad contada');
             return;
         }
@@ -689,6 +699,7 @@ class ConteoManager {
                 const codigoGuardado = String(datos.codigo || '').toUpperCase().trim();
                 if (codigoGuardado) {
                     this.codigosContados.add(codigoGuardado);
+                    this._guardadosRecientes.set(codigoGuardado, Date.now());
                 }
 
                 this.actualizarContador();
@@ -868,6 +879,189 @@ class ConteoManager {
         }
     }
     
+
+    // ================================================
+    // ACTUALIZACIÓN EN VIVO (sincroniza con Google Sheets)
+    // ================================================
+
+    _gidOlimpo() {
+        return this.tipo === 'mercado'
+            ? CONFIG.GID_OLIMPO_MER
+            : (this.tipo === 'bodega' ? CONFIG.GID_OLIMPO_BC : CONFIG.GID_OLIMPO_FAR);
+    }
+
+    iniciarActualizacionEnVivo() {
+        this._refrescando = false;
+        this._ultimoRefresco = Date.now();
+        this._ultimoRefrescoOlimpo = Date.now(); // la carga inicial acaba de traerlos
+
+        const ms = (CONFIG.LIVE_INTERVAL_CONTEOS || 15) * 1000;
+        setInterval(() => {
+            if (!document.hidden) this.refrescarEnVivo(false);
+        }, ms);
+
+        // Al volver a la app (cambio de pestaña, PWA en segundo plano, pantalla bloqueada)
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) this.refrescarEnVivo(true);
+        });
+        window.addEventListener('online', () => this.refrescarEnVivo(true));
+    }
+
+    async refrescarEnVivo(forzarOlimpo = false) {
+        if (this._refrescando) return;
+        if (Date.now() - this._ultimoRefresco < 3000) return; // evita ráfagas
+        this._refrescando = true;
+        this._ultimoRefresco = Date.now();
+
+        try {
+            await this.refrescarConteosEnVivo();
+
+            const msOlimpo = (CONFIG.LIVE_INTERVAL_OLIMPO || 60) * 1000;
+            if (forzarOlimpo || Date.now() - this._ultimoRefrescoOlimpo >= msOlimpo) {
+                await this.refrescarProductosEnVivo();
+            }
+        } catch (error) {
+            // Sin internet o Google no respondió: se conserva lo que ya se ve.
+            console.warn('Actualización en vivo omitida:', error.message || error);
+        } finally {
+            this._refrescando = false;
+        }
+    }
+
+    /**
+     * Marcas CONTADO + contador + aviso del formulario, según lo que HAY ahora en la hoja.
+     * Si se borra un registro en la hoja, su marca CONTADO desaparece.
+     */
+    async refrescarConteosEnVivo() {
+        const r = await SheetsAPI.getConteoEnVivo(this.gidSucursal);
+        const ahora = Date.now();
+
+        const nuevo = new Set(r.codigos.keys());
+
+        // Conservar (máx. 90 s) lo que ESTA sesión acaba de guardar y Sheets aún no muestra.
+        for (const [codigo, t] of this._guardadosRecientes) {
+            if (nuevo.has(codigo)) this._guardadosRecientes.delete(codigo);   // ya está en la hoja
+            else if (ahora - t < 90000) nuevo.add(codigo);
+            else this._guardadosRecientes.delete(codigo);                      // nunca llegó a la hoja
+        }
+
+        this.codigosContados = nuevo;
+        this.actualizarMarcasContado();
+
+        const usuario = Auth.getUsuarioActual().toLowerCase();
+        const contador = document.getElementById('count-total');
+        if (contador) contador.textContent = r.conteos[usuario] || 0;
+
+        this.actualizarBannerEnVivo(r.codigos);
+    }
+
+    /** Pone o quita "✓ CONTADO" en las tarjetas ya dibujadas, sin redibujar la lista. */
+    actualizarMarcasContado() {
+        document.querySelectorAll('#products-list .product-card').forEach(card => {
+            const producto = card._producto;
+            if (!producto) return;
+
+            const contado = this.codigosContados.has(String(producto.codigo || '').toUpperCase().trim());
+            const badge = card.querySelector('.product-counted-badge');
+
+            card.classList.toggle('ya-contado', contado);
+
+            if (contado && !badge) {
+                const info = card.querySelector('.product-info');
+                if (info) {
+                    const span = document.createElement('span');
+                    span.className = 'product-counted-badge';
+                    span.textContent = '✓ CONTADO';
+                    info.appendChild(span);
+                }
+            } else if (!contado && badge) {
+                badge.remove();
+            }
+        });
+    }
+
+    /** Si el formulario está abierto, mantiene al día el aviso "ya fue contado N veces". */
+    actualizarBannerEnVivo(mapaCodigos) {
+        const overlay = document.getElementById('conteo-modal-overlay');
+        const banner = document.getElementById('ya-contado-banner');
+        if (!overlay || !banner || !overlay.classList.contains('open') || !this.productoSeleccionado) return;
+
+        const codigo = String(this.productoSeleccionado.codigo || '').toUpperCase().trim();
+        const veces = mapaCodigos.get(codigo) || 0;
+
+        if (veces > 0) {
+            document.getElementById('ya-contado-texto').textContent =
+                `Este producto ya fue contado ${veces} ${veces === 1 ? 'vez' : 'veces'}. Puedes registrar otro conteo si está en otra ubicación.`;
+            banner.style.display = 'flex';
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+
+    /**
+     * Productos y existencia desde OLIMPO. Se redibuja la lista solo si algo cambió,
+     * conservando la posición del scroll, y sin interrumpir si el usuario está escribiendo
+     * o tiene el escáner abierto.
+     */
+    async refrescarProductosEnVivo() {
+        const input = document.getElementById('search-input');
+        const scanner = document.getElementById('scanner-modal');
+        if (scanner && scanner.style.display === 'flex') return;
+        if (Date.now() - this._ultimaEscritura < 2500) return;
+
+        const gid = this._gidOlimpo();
+        const termino = input.value.trim();
+
+        const inventario = await SheetsAPI.getInventario(gid, 0); // descarga fresca
+        this._ultimoRefrescoOlimpo = Date.now();
+
+        const overlay = document.getElementById('conteo-modal-overlay');
+        const formularioAbierto = overlay && overlay.classList.contains('open');
+
+        if (formularioAbierto) {
+            // No se redibuja nada detrás del formulario; solo se actualiza la existencia.
+            if (this.productoSeleccionado) {
+                const actual = inventario.find(p => p.codigo === this.productoSeleccionado.codigo);
+                if (actual) this.actualizarExistenciaFormulario(actual);
+            }
+            return;
+        }
+
+        let productos;
+        if (termino === '') {
+            productos = inventario.slice(0, 100);
+            this.productosIniciales = productos;
+        } else {
+            let tipo = this.modoBarcode ? 'barcode' : 'all';
+            if (!this.modoBarcode && /^\d{8,}$/.test(termino)) tipo = 'barcode';
+            productos = await SheetsAPI.buscarProducto(termino, tipo, gid); // usa la copia recién descargada
+        }
+
+        // Si el usuario escribió mientras se descargaba, no tocar la pantalla.
+        if (Date.now() - this._ultimaEscritura < 2500 || input.value.trim() !== termino) return;
+
+        const mostrados = Array.from(document.querySelectorAll('#products-list .product-card'))
+            .map(card => card._producto).filter(Boolean);
+
+        if (JSON.stringify(mostrados) === JSON.stringify(productos)) return; // sin cambios
+
+        const y = window.scrollY;
+        this.mostrarResultados(productos);
+        window.scrollTo(0, y);
+    }
+
+    actualizarExistenciaFormulario(producto) {
+        const el = document.getElementById('form-existencia');
+        if (!el) return;
+        const nuevo = producto.saldo || 0;
+        if (String(el.dataset.valor) === String(nuevo)) return;
+
+        el.textContent = nuevo;
+        el.dataset.valor = nuevo;
+        this.productoSeleccionado.saldo = producto.saldo;
+        this.calcularDiferencia();
+    }
+
     // ================================================
     // UTILIDADES
     // ================================================

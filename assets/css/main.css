@@ -344,6 +344,11 @@ body {
     background: #FFFBEB;
 }
 
+.card-bodega:hover {
+    border-color: #0D7377;
+    background: #F0F7F6;
+}
+
 .card-icon {
     font-size: 3rem;
     margin-bottom: var(--spacing-md);

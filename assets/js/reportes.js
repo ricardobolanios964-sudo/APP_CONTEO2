@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
             opciones.forEach(o => o.classList.remove('active'));
             opcion.classList.add('active');
             
-            const nombreBonito = sucursalActual === 'mercado' ? 'Mercado' : 'Farmacia';
+            const nombreBonito = sucursalActual === 'mercado' ? 'Mercado' : (sucursalActual === 'bodega' ? 'Bodega' : 'Farmacia');
             btnTexto.textContent = `⬇️ Descargar Reporte de ${nombreBonito}`;
         });
     });
@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnSpinner.style.display = 'inline-block';
             
             try {
-                const gid = sucursalActual === 'mercado' ? CONFIG.GID_INVENTARIO_MER : CONFIG.GID_INVENTARIO_FAR;
+                const gid = sucursalActual === 'mercado' ? CONFIG.GID_INVENTARIO_MER : (sucursalActual === 'bodega' ? CONFIG.GID_INVENTARIO_BC : CONFIG.GID_INVENTARIO_FAR);
                 const resultado = await SheetsAPI.getDatosReporte(gid);
                 
                 if (!resultado.success) {
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 const csv = construirCSV(resultado.filas);
-                descargarCSV(csv, `Reporte_Conteo_${sucursalActual === 'mercado' ? 'Mercado' : 'Farmacia'}_${fechaHoy()}.csv`);
+                descargarCSV(csv, `Reporte_Conteo_${sucursalActual === 'mercado' ? 'Mercado' : (sucursalActual === 'bodega' ? 'Bodega' : 'Farmacia')}_${fechaHoy()}.csv`);
                 
             } catch (error) {
                 console.error(error);

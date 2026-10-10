@@ -1,0 +1,33 @@
+APP_CONTEO2 V2.5.0
+NUEVO MODULO: BODEGA
+
+BASE
+Esta versión parte directamente de V2.4.1.
+
+OBJETIVO
+Agregar el módulo BODEGA con el mismo comportamiento que MERCADO y FARMACIA.
+
+FUNCIONAMIENTO
+- Los productos se leen de la hoja OLIMPO_BC (GID 1023783261).
+- Los conteos se guardan en la hoja INVENTARIO_BC (GID 554330490).
+- Se envía SUCURSAL = "bodega" al Apps Script.
+- ID de registro con prefijo BODE (ej: BODE-261010-1530-123-USUARIO).
+
+CAMBIOS
+- config.js: GID_OLIMPO_BC y GID_INVENTARIO_BC.
+- sheets-api.js: lectura por nombre/GID, prefijo de ID y limpieza de caché para bodega.
+- conteo.js: tipo "bodega" aceptado; usa OLIMPO_BC e INVENTARIO_BC.
+- dashboard.html: nueva tarjeta BODEGA.
+- resumen.html / resumen.js: nueva pestaña Bodega.
+- reportes.html / reportes.js: nueva opción Bodega.
+- main.css / reportes.css: solo se agregaron reglas (no se modificó ninguna existente).
+
+IMPORTANTE
+El Apps Script (doPost) debe reconocer SUCURSAL = "bodega" y escribir en la hoja
+INVENTARIO_BC. Sin ese cambio los conteos de bodega no llegarán a la hoja correcta.
+
+NO SE MODIFICO
+- Lógica de Mercado y Farmacia.
+- Login, sesión, cierre de sesión.
+- Búsqueda, formulario, escáner.
+- Service Worker (solo el número de versión).

@@ -15,11 +15,23 @@ const SheetsAPI = {
      * localStorage con expiración, igual que hacía PHP con archivos.
      */
     async _fetchCSV(gid, ttlSeconds) {
+        const esConteoGid = gid === CONFIG.GID_INVENTARIO_MER || gid === CONFIG.GID_INVENTARIO_FAR || gid === CONFIG.GID_INVENTARIO_BC;
+        if (!esConteoGid) return this._fetchCSVReal(gid, ttlSeconds);
+
+        // Si ya hay una descarga de esta hoja de conteos en curso, se comparte.
+        this._enVuelo = this._enVuelo || {};
+        if (this._enVuelo[gid]) return this._enVuelo[gid];
+        const promesa = this._fetchCSVReal(gid, ttlSeconds).finally(() => { delete this._enVuelo[gid]; });
+        this._enVuelo[gid] = promesa;
+        return promesa;
+    },
+
+    async _fetchCSVReal(gid, ttlSeconds) {
         const cacheKey = `bolanos_csv_${gid}`;
 
         // Inventarios de conteo: Google Sheets es la fuente de verdad.
         // No reutilizamos datos viejos del navegador para esta lectura.
-        const esConteo = gid === CONFIG.GID_INVENTARIO_MER || gid === CONFIG.GID_INVENTARIO_FAR;
+        const esConteo = gid === CONFIG.GID_INVENTARIO_MER || gid === CONFIG.GID_INVENTARIO_FAR || gid === CONFIG.GID_INVENTARIO_BC;
 
         if (!esConteo) {
             try {
@@ -37,7 +49,9 @@ const SheetsAPI = {
             ? 'INVENTARIO_MER'
             : gid === CONFIG.GID_INVENTARIO_FAR
                 ? 'INVENTARIO_FAR'
-                : null;
+                : gid === CONFIG.GID_INVENTARIO_BC
+                    ? 'INVENTARIO_BC'
+                    : null;
 
         const urls = [];
 
@@ -58,10 +72,10 @@ const SheetsAPI = {
 
         for (const url of urls) {
             try {
-                const response = await fetch(url, {
-                    cache: 'no-store',
-                    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-                });
+                // Sin headers personalizados: Cache-Control/Pragma obligan al navegador
+                // a hacer una petición "preflight" que Google rechaza (redirige).
+                // cache:'no-store' y el parámetro cb ya evitan la caché.
+                const response = await fetch(url, { cache: 'no-store' });
 
                 if (!response.ok) {
                     ultimoError = new Error(`No se pudo leer la hoja (HTTP ${response.status}).`);
@@ -153,6 +167,7 @@ const SheetsAPI = {
     },
 
     _limpiarCache(gid) {
+        if (this._enVuelo) delete this._enVuelo[gid];
         localStorage.removeItem(`bolanos_csv_${gid}`);
     },
 
@@ -177,11 +192,11 @@ const SheetsAPI = {
     // OLIMPO (inventario)
     // ================================================
 
-    async getInventario(gid) {
+    async getInventario(gid, ttl = CONFIG.CACHE_TTL_OLIMPO) {
         if (!gid) {
             throw new Error('No se especificó la hoja OLIMPO para este formulario.');
         }
-        const filas = await this._fetchCSV(gid, CONFIG.CACHE_TTL_OLIMPO);
+        const filas = await this._fetchCSV(gid, ttl);
         const datos = filas.slice(1);
 
         return datos
@@ -376,6 +391,44 @@ const SheetsAPI = {
         }
     },
 
+    /**
+     * Estado actual de la hoja de conteos en UNA sola descarga:
+     *  - codigos: Map(CODIGO en mayúsculas -> veces registrado)
+     *  - conteos: { usuario: cantidad }  (misma regla que Resumen)
+     *  - total
+     * A diferencia de getCodigosRegistrados, si falla LANZA el error (así la
+     * pantalla conserva lo que ya mostraba en vez de borrar las marcas CONTADO).
+     */
+    async getConteoEnVivo(gid) {
+        const filas = await this._fetchCSV(gid, 0);
+        const norm = h => String(h || '').replace(/^\uFEFF/, '').replace(/\u00A0/g, ' ').trim().toUpperCase();
+        const headers = (filas[0] || []).map(norm);
+        const colCodigo = headers.findIndex(h =>
+            h === 'CODIGO' || h === 'CÓDIGO' || h === 'CODIGO PRODUCTO' || h === 'CÓDIGO PRODUCTO'
+        );
+        if (colCodigo === -1) throw new Error('La hoja de conteos no tiene la columna CODIGO.');
+
+        const codigos = new Map();
+        const conteos = {};
+        let total = 0;
+
+        for (const row of filas.slice(1)) {
+            const codigo = norm(row[colCodigo]);
+            if (codigo) codigos.set(codigo, (codigos.get(codigo) || 0) + 1);
+
+            const idRegistro = String(row[0] || '').replace(/^\uFEFF/, '').trim();
+            if (idRegistro) {
+                const usuario = this._extraerUsuarioDeId(idRegistro);
+                if (usuario) {
+                    conteos[usuario] = (conteos[usuario] || 0) + 1;
+                    total++;
+                }
+            }
+        }
+
+        return { codigos, conteos, total };
+    },
+
     async getCodigosRegistrados(gid) {
         if (!gid) return [];
 
@@ -480,7 +533,7 @@ const SheetsAPI = {
     // ================================================
 
     _generarIdRegistro(usuario, tipo) {
-        const prefijo = tipo === 'mercado' ? 'MERC' : 'FARM';
+        const prefijo = tipo === 'mercado' ? 'MERC' : (tipo === 'bodega' ? 'BODE' : 'FARM');
         const ahora = new Date();
         const yy = String(ahora.getFullYear()).slice(-2);
         const mm = String(ahora.getMonth() + 1).padStart(2, '0');
@@ -525,7 +578,7 @@ const SheetsAPI = {
             ESTATUS: datos.estatus || 'Registrado',
         };
 
-        const gidSucursal = tipo === 'mercado' ? CONFIG.GID_INVENTARIO_MER : CONFIG.GID_INVENTARIO_FAR;
+        const gidSucursal = tipo === 'mercado' ? CONFIG.GID_INVENTARIO_MER : (tipo === 'bodega' ? CONFIG.GID_INVENTARIO_BC : CONFIG.GID_INVENTARIO_FAR);
 
         try {
             // text/plain evita el preflight CORS con Apps Script

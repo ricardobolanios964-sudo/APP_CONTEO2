@@ -1,0 +1,31 @@
+APP_CONTEO2 V2.6.0
+NOMBRES DE HOJA + ACTUALIZACION EN VIVO
+
+BASE
+Esta versión parte directamente de V2.5.2.
+
+1) NOMBRES DE LAS HOJAS DE BODEGA
+- Las hojas se llaman INVENTARIO_BC y OLIMPO_BC (con guion bajo).
+- sheets-api.js lee INVENTARIO_BC por su nombre real (respaldo por GID).
+- Code.gs (Apps Script): SUCURSAL = "bodega" escribe en INVENTARIO_BC.
+  Hay que publicar NUEVA VERSION de la implementación existente (la URL no cambia).
+
+2) ACTUALIZACION EN VIVO
+Google Sheets no envía avisos, así que la app consulta la hoja periódicamente
+(solo mientras la pantalla está visible) y al volver a la app.
+- Formulario de conteo, cada 15 s (LIVE_INTERVAL_CONTEOS):
+  * Marcas "CONTADO": aparecen y DESAPARECEN según lo que haya en la hoja de conteos.
+  * Contador "Conteos realizados".
+  * Aviso "ya fue contado N veces" si el formulario está abierto.
+- Formulario de conteo, cada 60 s (LIVE_INTERVAL_OLIMPO):
+  * Lista de productos y existencia desde OLIMPO. Solo se redibuja si algo cambió,
+    sin perder el scroll. Con el formulario abierto solo se actualiza la existencia.
+  * No interrumpe mientras se escribe en el buscador ni con el escáner abierto.
+- Resumen de conteos, cada 15 s, sin parpadeo ni avisos de error en segundo plano.
+- Si falla internet, se conserva lo que ya se ve (no se borran marcas).
+- Un conteo recién guardado conserva su marca hasta 90 s aunque Google tarde en
+  reflejarlo; si nunca aparece en la hoja, la marca se retira.
+- Se evita descargar la misma hoja de conteos varias veces a la vez.
+
+NO SE MODIFICO
+- Login, sesión, guardado, escáner, reportes, PWA (solo el número de versión).

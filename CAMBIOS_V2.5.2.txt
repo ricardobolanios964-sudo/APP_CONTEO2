@@ -1,0 +1,15 @@
+APP_CONTEO2 V2.5.2
+PERMITIR CONTEO EN CERO
+
+BASE
+Esta versión parte directamente de V2.5.1.
+
+CAMBIO
+- conteo.js: el formulario ya no rechaza la cantidad 0. Solo se rechaza el campo
+  vacío o un valor no numérico. Permite registrar que un producto no tiene
+  existencia física.
+- config.js: WEBAPP_URL apunta a la nueva implementación del Apps Script
+  (con soporte para SUCURSAL = "bodega" → INVENTARIO_BC).
+
+NO SE MODIFICO
+- Nada más de la lógica de la app.

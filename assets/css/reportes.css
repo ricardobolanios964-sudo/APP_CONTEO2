@@ -125,3 +125,8 @@
     font-size: 0.8rem;
     margin-top: var(--spacing-md);
 }
+
+/* Tercera opción (Bodega): ocupa todo el ancho debajo de las otras dos */
+.reporte-opcion-card:nth-child(3) {
+    grid-column: 1 / -1;
+}

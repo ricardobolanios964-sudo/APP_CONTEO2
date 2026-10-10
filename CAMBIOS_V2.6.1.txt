@@ -1,0 +1,11 @@
+APP_CONTEO2 V2.6.1
+NUEVA URL DEL APPS SCRIPT
+
+BASE
+Esta versión parte directamente de V2.6.0.
+
+CAMBIO
+- config.js: WEBAPP_URL apunta a la nueva implementación del Apps Script.
+
+NO SE MODIFICO
+- Nada más (solo el número de versión).

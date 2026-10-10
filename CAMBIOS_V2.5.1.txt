@@ -1,0 +1,15 @@
+APP_CONTEO2 V2.5.1
+CORRECCION: LECTURA DE GOOGLE SHEETS (LOGIN Y DATOS)
+
+PROBLEMA
+La lectura de las hojas enviaba los headers Cache-Control y Pragma. Eso fuerza una
+petición "preflight" (OPTIONS) que Google rechaza porque redirige. Resultado: el
+navegador bloqueaba la lectura de USUARIOS y el login siempre fallaba.
+
+CORRECCION
+- sheets-api.js: se quitaron los headers personalizados del fetch de lectura.
+  La caché sigue desactivada con cache:'no-store' y el parámetro cb=<timestamp>.
+
+NOTA
+La app debe abrirse por http(s) (XAMPP: http://localhost/APP_CONTEO2-main/ o GitHub Pages),
+nunca haciendo doble clic al archivo (file:///).

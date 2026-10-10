@@ -51,18 +51,20 @@ Esa es tu app funcionando en internet, gratis, para siempre.
 - Formulario de conteo completo (rueda de fecha, precios, observaciones)
 - Aviso de "producto ya contado"
 - Animaciones de envío y éxito
-- Resumen de Conteos con filtro Mercado/Farmacia
+- Resumen de Conteos con filtro Mercado/Farmacia/Bodega
+- Módulo Bodega (lee de OLIMPO_BC y guarda en INVENTARIO_BC)
+- Actualización en vivo: la app vuelve a leer las hojas cada pocos segundos (ver `LIVE_INTERVAL_*` en `assets/js/config.js`). Si se borra un registro en la hoja, su marca CONTADO desaparece.
 - Generar Reportes (descarga CSV)
 - Todo el diseño y estilos, sin cambios
 
 
 ## 🔄 Control de versiones, caché y actualización obligatoria de la PWA
 
-**Versión actual:** `2.4.1`
+**Versión actual:** `2.6.1`
 
 La aplicación utiliza dos mecanismos complementarios para evitar que un navegador o una PWA instalada conserve una versión antigua:
 
-1. **Versionado de recursos:** CSS y JavaScript llevan `?v=2.4.1`.
+1. **Versionado de recursos:** CSS y JavaScript llevan `?v=2.6.1`.
 2. **Service Worker:** la PWA tiene `service-worker.js` con una caché identificada por versión. Al publicarse una versión nueva, el navegador detecta el nuevo Service Worker, elimina la caché anterior y toma control de la aplicación.
 
 ### Actualización obligatoria

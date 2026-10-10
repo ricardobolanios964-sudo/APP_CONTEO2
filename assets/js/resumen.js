@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const params = new URLSearchParams(window.location.search);
     let sucursalActual = (params.get('sucursal') || 'mercado').toLowerCase();
-    if (!['mercado', 'farmacia'].includes(sucursalActual)) sucursalActual = 'mercado';
+    if (!['mercado', 'farmacia', 'bodega'].includes(sucursalActual)) sucursalActual = 'mercado';
     
     // Marcar el tab correcto al cargar
     document.querySelectorAll('.resumen-filter-tab').forEach(t => {
@@ -16,6 +16,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     cargarResumen(sucursalActual);
+    
+    // Actualización en vivo: vuelve a leer la hoja mientras la pantalla está visible
+    setInterval(() => {
+        if (!document.hidden) cargarResumen(sucursalActual, true);
+    }, (CONFIG.LIVE_INTERVAL_CONTEOS || 15) * 1000);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) cargarResumen(sucursalActual, true);
+    });
     
     document.querySelectorAll('.resumen-filter-tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -45,20 +53,25 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
     
-    async function cargarResumen(sucursal) {
+    async function cargarResumen(sucursal, silencioso = false) {
         const container = document.getElementById('resumen-data-container');
         
         try {
-            const gid = sucursal === 'mercado' ? CONFIG.GID_INVENTARIO_MER : CONFIG.GID_INVENTARIO_FAR;
+            const gid = sucursal === 'mercado' ? CONFIG.GID_INVENTARIO_MER : (sucursal === 'bodega' ? CONFIG.GID_INVENTARIO_BC : CONFIG.GID_INVENTARIO_FAR);
             const resultado = await SheetsAPI.getConteosPorUsuario(gid);
             
+            // Si el usuario cambió de pestaña mientras descargaba, descartar esta respuesta
+            if (sucursal !== sucursalActual) return;
+            
             if (!resultado.success) {
+                // En refrescos automáticos no se reemplazan datos buenos por un aviso de error
+                if (silencioso) return;
                 container.innerHTML = renderPendiente(sucursal, resultado.mensaje);
                 return;
             }
             
             const usuarioActual = Auth.getUsuarioActual().toLowerCase();
-            const nombresSucursal = sucursal === 'mercado' ? 'Mercado' : 'Farmacia';
+            const nombresSucursal = sucursal === 'mercado' ? 'Mercado' : (sucursal === 'bodega' ? 'Bodega' : 'Farmacia');
             
             let html = `
                 <div class="resumen-total-card">
@@ -98,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
         } catch (error) {
             console.error('Error cargando resumen:', error);
+            if (silencioso) return;
             container.innerHTML = renderPendiente(sucursal, error.message || 'Error de conexión al cargar los datos');
         }
     }
