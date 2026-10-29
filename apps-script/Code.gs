@@ -1,300 +1,289 @@
 /**
- * APP_CONTEO2 - Apps Script (servidor) - V2.8.1
- * Farmacia Bolaños
+ * APPS SCRIPT ACTUALIZADO - Farmacia Bolaños
  *
- * QUÉ HACE
- *  1) Guarda los conteos en INVENTARIO_MER / INVENTARIO_FAR / INVENTARIO_BC.
- *     - Candado (LockService): aunque lleguen 10, 20 o más envíos a la vez,
- *       entran a la hoja uno por uno. Nunca se pisan filas.
- *     - Sin duplicados: si la app reintenta un envío (por ejemplo porque se cortó
- *       la señal), el ID_REGISTRO ya existe y NO se escribe otra fila.
- *     - Responde "success: true" SOLO cuando la fila ya quedó escrita en la hoja.
- *     - Escribe cada dato en la columna cuyo ENCABEZADO coincide (no depende del
- *       orden de las columnas).
- *  2) Cambia la contraseña temporal 000000 por la nueva (hoja USUARIOS).
- *  3) "Este código está siendo contado por...": registra quién tiene abierto cada
- *     código (en memoria del script, se borra solo a los 5 minutos sin señal).
+ * Maneja TRES cosas:
  *
- * CÓMO PUBLICARLO (la URL de la app NO cambia)
- *  - Pega este archivo completo en lugar de tu Code.gs y guarda.
- *  - Implementar > Gestionar implementaciones > (lápiz) Editar >
- *    Versión: "Nueva versión" > Implementar.
- *  - "Ejecutar como: Yo" y "Quién tiene acceso: Cualquier usuario".
- *  - Si algo saliera mal, en esa misma pantalla puedes volver a la versión anterior.
+ * 1) GUARDAR CONTEOS - todas las sucursales usan las mismas 14 columnas:
+ *    ID_REGISTRO, FECHA, HORA INCIO, HORA FIN, CODIGO, NOMBRE, MARCA,
+ *    EXISTENCIA_SISTEMA, CANTIDAD_FISICA, VENCE, PVP_PUBLICO, PRECIO_DNM,
+ *    OBSERVACIONES, ESTATUS
+ *    - SUCURSAL = "mercado"  → hoja INVENTARIO_MER
+ *    - SUCURSAL = "farmacia" → hoja INVENTARIO_FAR
+ *    - SUCURSAL = "bodega"   → hoja INVENTARIO_BC
+ *    NUEVO (V2.8.1):
+ *    - Candado: si llegan muchos envíos a la vez, entran a la hoja uno por uno.
+ *    - Sin duplicados: si la app reintenta un envío con el mismo ID_REGISTRO
+ *      (por ejemplo porque se cortó la señal), NO se escribe otra fila.
+ *    - Responde éxito solo cuando la fila ya quedó escrita (flush).
+ *
+ * 2) CAMBIAR CONTRASEÑA - actualiza la hoja USUARIOS (sin cambios)
+ *    - ACCION = "CAMBIAR_PASSWORD" con USUARIO y NUEVA_PASSWORD
+ *
+ * 3) NUEVO: "ESTE CÓDIGO ESTÁ SIENDO CONTADO POR..." (doGet ?accion=en_conteo)
+ *    Se guarda en la memoria del script, NUNCA en las hojas.
+ *
+ * IMPORTANTE: la hoja USUARIOS debe tener columnas "USUARIO" y
+ * "CONTRASEÑA" (con eñe) en la primera fila.
  */
 
-// ===================== CONFIGURACIÓN =====================
-
-const SHEET_ID = '1vMn6A3_Sm2KvdlV9UNQGFV1WTuIKmfl718tHMEy52bg';
-
-// Hojas de conteo: se buscan por NOMBRE y, si no existe, por GID.
-const HOJAS_CONTEO = {
-  mercado:  { nombre: 'INVENTARIO_MER', gid: 1290916129 },
-  farmacia: { nombre: 'INVENTARIO_FAR', gid: 1929739320 },
-  bodega:   { nombre: 'INVENTARIO_BC',  gid: 554330490 }
-};
-
-const HOJA_USUARIOS = { nombre: 'USUARIOS', gid: 138385541 };
-
-// Cuánto espera un envío su turno si hay muchos a la vez (ms).
-const ESPERA_CANDADO_MS = 25000;
-
-// Cuántas filas del final se revisan para detectar un ID repetido.
-const FILAS_REVISION_DUPLICADOS = 2000;
-
-// "Siendo contado por": segundos sin señal para quitar el aviso.
-const EN_CONTEO_TTL_S = 300;
-
-// Columnas que se guardan como TEXTO exacto (evita que Sheets convierta
-// "00123" en 123 o "10/2026" en una fecha).
-const COLUMNAS_TEXTO = ['ID_REGISTRO', 'CODIGO', 'VENCE'];
-
-// Columnas numéricas (se guardan como número si el valor es numérico).
-const COLUMNAS_NUMERO = ['EXISTENCIA_SISTEMA', 'CANTIDAD_FISICA', 'PVP_PUBLICO', 'PRECIO_DNM'];
-
-// ===================== ENTRADAS WEB =====================
+// ===== AJUSTES NUEVOS (V2.8.1) =====
+const VERSION_SCRIPT = '2.8.1'
+const ESPERA_CANDADO_MS = 25000          // cuánto espera un envío su turno
+const FILAS_REVISION_DUPLICADOS = 2000   // filas del final donde se busca un ID repetido
+const EN_CONTEO_TTL_S = 300              // "siendo contado": se quita solo a los 5 min sin señal
 
 function doPost(e) {
   try {
-    const datos = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    const data = JSON.parse(e.postData.contents)
 
-    if (datos.ACCION === 'CAMBIAR_PASSWORD') {
-      return json_(cambiarPassword_(datos));
+    // ================================================
+    // ACCIÓN: CAMBIAR CONTRASEÑA (hoja USUARIOS)  - SIN CAMBIOS
+    // ================================================
+    if (data.ACCION === "CAMBIAR_PASSWORD") {
+      const sheetUsuarios = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("USUARIOS")
+
+      if (!sheetUsuarios) {
+        return ContentService.createTextOutput(
+          JSON.stringify({ success: false, message: "No se encontró la hoja USUARIOS" })
+        ).setMimeType(ContentService.MimeType.JSON)
+      }
+
+      const headers = sheetUsuarios.getRange(1, 1, 1, sheetUsuarios.getLastColumn()).getValues()[0]
+      const colUsuario = headers.findIndex(h => h.toString().trim().toUpperCase() === "USUARIO")
+      const colPassword = headers.findIndex(h => h.toString().trim().toUpperCase().indexOf("CONTRASE") === 0)
+
+      if (colUsuario < 0 || colPassword < 0) {
+        return ContentService.createTextOutput(
+          JSON.stringify({ success: false, message: "No se encontraron las columnas USUARIO/CONTRASEÑA" })
+        ).setMimeType(ContentService.MimeType.JSON)
+      }
+
+      const lastRow = sheetUsuarios.getLastRow()
+      const usuarios = sheetUsuarios.getRange(2, colUsuario + 1, lastRow - 1, 1).getValues()
+
+      for (let i = 0; i < usuarios.length; i++) {
+        // Comparación EXACTA (respeta mayúsculas/minúsculas)
+        if (usuarios[i][0].toString().trim() === (data.USUARIO || '').toString().trim()) {
+          sheetUsuarios.getRange(i + 2, colPassword + 1).setValue(data.NUEVA_PASSWORD)
+          return ContentService.createTextOutput(
+            JSON.stringify({ success: true, message: "Contraseña actualizada correctamente" })
+          ).setMimeType(ContentService.MimeType.JSON)
+        }
+      }
+
+      return ContentService.createTextOutput(
+        JSON.stringify({ success: false, message: "Usuario no encontrado en la hoja USUARIOS" })
+      ).setMimeType(ContentService.MimeType.JSON)
     }
-    if (datos.ACCION === 'EN_CONTEO') {
-      return json_(enConteo_(datos));
+
+    // ================================================
+    // NUEVO: "SIENDO CONTADO POR" también por POST (la app usa GET)
+    // ================================================
+    if (data.ACCION === "EN_CONTEO") {
+      return respuestaJSON_(enConteo_(data))
     }
-    // Sin ACCION = guardar conteo (formato que ya usa la app)
-    return json_(guardarConteo_(datos));
-  } catch (err) {
-    return json_({ success: false, code: 'ERROR', message: 'Error en el servidor: ' + err.message });
+
+    // ================================================
+    // GUARDAR CONTEO (INVENTARIO_MER, INVENTARIO_FAR o INVENTARIO_BC)
+    // ================================================
+
+    const sucursal = (data.SUCURSAL || '').toString().toLowerCase().trim()
+
+    let sheetName
+    if (sucursal === 'mercado') {
+      sheetName = 'INVENTARIO_MER'
+    } else if (sucursal === 'bodega') {
+      sheetName = 'INVENTARIO_BC'
+    } else {
+      sheetName = 'INVENTARIO_FAR'
+    }
+
+    // NUEVO: si este mismo envío (mismo ID_REGISTRO) ya se guardó antes,
+    // responder éxito SIN escribir otra fila (reintento de la app).
+    const idRegistro = (data.ID_REGISTRO || '').toString().trim()
+    const cache = CacheService.getScriptCache()
+    if (idRegistro && data.ACCION !== "ACTUALIZAR" && cache.get('ID_' + idRegistro)) {
+      return ContentService.createTextOutput(
+        JSON.stringify({ success: true, message: "Conteo registrado exitosamente", id: data.ID_REGISTRO, duplicado: true })
+      ).setMimeType(ContentService.MimeType.JSON)
+    }
+
+    // NUEVO: candado - los envíos simultáneos entran uno por uno
+    const lock = LockService.getScriptLock()
+    if (!lock.tryLock(ESPERA_CANDADO_MS)) {
+      return ContentService.createTextOutput(
+        JSON.stringify({ success: false, code: "OCUPADO", message: "Servidor ocupado, intenta de nuevo" })
+      ).setMimeType(ContentService.MimeType.JSON)
+    }
+
+    try {
+      const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName)
+
+      if (!sheet) {
+        return ContentService.createTextOutput(
+          JSON.stringify({ success: false, message: "No se encontró la hoja " + sheetName })
+        ).setMimeType(ContentService.MimeType.JSON)
+      }
+
+      const lastCol = sheet.getLastColumn()
+      const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+
+      // Si se pide ACTUALIZAR (mismo código + misma fecha de vencimiento),
+      // actualiza la cantidad en vez de crear una fila nueva
+      if (data.ACCION === "ACTUALIZAR" && sheet.getLastRow() > 1) {
+        const colCodigo   = headers.indexOf("CODIGO")
+        const colVence    = headers.indexOf("VENCE")
+        const colCantidad = headers.indexOf("CANTIDAD_FISICA")
+
+        if (colCodigo >= 0 && colVence >= 0 && colCantidad >= 0) {
+          const lastRow = sheet.getLastRow()
+          const codigos = sheet.getRange(2, colCodigo + 1, lastRow - 1, 1).getValues()
+          const vences  = sheet.getRange(2, colVence  + 1, lastRow - 1, 1).getValues()
+
+          for (let i = 0; i < codigos.length; i++) {
+            if (
+              codigos[i][0].toString().trim() === (data.CODIGO || '').toString().trim() &&
+              vences[i][0].toString().trim()  === (data.VENCE || '').toString().trim()
+            ) {
+              sheet.getRange(i + 2, colCantidad + 1).setValue(parseFloat(data.CANTIDAD_FISICA))
+              SpreadsheetApp.flush() // NUEVO: asegurar que quedó escrito antes de responder
+              return ContentService.createTextOutput(
+                JSON.stringify({ success: true, message: "Cantidad actualizada", id: data.ID_REGISTRO })
+              ).setMimeType(ContentService.MimeType.JSON)
+            }
+          }
+        }
+      }
+
+      // NUEVO: segunda protección contra duplicados - buscar el ID en las últimas filas
+      if (idRegistro && sheet.getLastRow() > 1) {
+        const colId = headers.findIndex(h => h.toString().trim() === "ID_REGISTRO")
+        if (colId >= 0) {
+          const ultimaFila = sheet.getLastRow()
+          const desde = Math.max(2, ultimaFila - FILAS_REVISION_DUPLICADOS + 1)
+          const ids = sheet.getRange(desde, colId + 1, ultimaFila - desde + 1, 1).getValues()
+          for (let i = ids.length - 1; i >= 0; i--) {
+            if (ids[i][0].toString().trim() === idRegistro) {
+              cache.put('ID_' + idRegistro, '1', 21600)
+              return ContentService.createTextOutput(
+                JSON.stringify({ success: true, message: "Conteo registrado exitosamente", id: data.ID_REGISTRO, duplicado: true })
+              ).setMimeType(ContentService.MimeType.JSON)
+            }
+          }
+        }
+      }
+
+      // Mismo mapeo de columnas para TODAS las sucursales
+      const fieldMap = {
+        "ID_REGISTRO":        data.ID_REGISTRO,
+        "FECHA":              data.FECHA,
+        "HORA INCIO":         data["HORA INCIO"],
+        "HORA FIN":           data["HORA FIN"],
+        "CODIGO":             data.CODIGO,
+        "NOMBRE":             data.NOMBRE,
+        "MARCA":              data.MARCA              || "",
+        "EXISTENCIA_SISTEMA": data.EXISTENCIA_SISTEMA || "",
+        "CANTIDAD_FISICA":    data.CANTIDAD_FISICA,
+        "VENCE":              data.VENCE              || "",
+        "PVP_PUBLICO":        data.PVP_PUBLICO        || "",
+        "PRECIO_DNM":         data.PRECIO_DNM         || "",
+        "OBSERVACIONES":      data.OBSERVACIONES      || "",
+        "ESTATUS":            data.ESTATUS            || "Registrado",
+      }
+
+      const row = headers.map(h => {
+        const key = h.toString().trim()
+        return fieldMap.hasOwnProperty(key) ? fieldMap[key] : ""
+      })
+
+      sheet.appendRow(row)
+      SpreadsheetApp.flush() // NUEVO: asegurar que quedó escrita antes de responder
+
+      if (idRegistro) cache.put('ID_' + idRegistro, '1', 21600) // recordar 6 h para reintentos
+
+      return ContentService.createTextOutput(
+        JSON.stringify({ success: true, message: "Conteo registrado exitosamente", id: data.ID_REGISTRO })
+      ).setMimeType(ContentService.MimeType.JSON)
+
+    } finally {
+      lock.releaseLock()
+    }
+
+  } catch (error) {
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: false, message: "Error: " + error.toString() })
+    ).setMimeType(ContentService.MimeType.JSON)
   }
 }
 
-/**
- * GET: se usa para el aviso "siendo contado por" (nunca escribe en las hojas).
- *  ?accion=en_conteo&modo=marcar|liberar|consultar&sucursal=..&codigo=..&usuario=..
- *  ?accion=ping  -> comprobar que el script responde y su versión
- */
 function doGet(e) {
-  try {
-    const p = (e && e.parameter) || {};
-    if (p.accion === 'en_conteo') {
-      return json_(enConteo_({
-        MODO: p.modo, SUCURSAL: p.sucursal, CODIGO: p.codigo, USUARIO: p.usuario
-      }));
-    }
-    return json_({ success: true, servicio: 'APP_CONTEO2', version: '2.8.1' });
-  } catch (err) {
-    return json_({ success: false, code: 'ERROR', message: err.message });
+  const p = (e && e.parameter) || {}
+
+  // NUEVO: "este código está siendo contado por..."
+  if (p.accion === 'en_conteo') {
+    return respuestaJSON_(enConteo_({
+      MODO: p.modo, SUCURSAL: p.sucursal, CODIGO: p.codigo, USUARIO: p.usuario
+    }))
   }
+
+  // Igual que antes (+ success y version para comprobar qué script está publicado)
+  return ContentService.createTextOutput(
+    JSON.stringify({ status: "OK", message: "Servicio funcionando correctamente", success: true, version: VERSION_SCRIPT })
+  ).setMimeType(ContentService.MimeType.JSON)
 }
 
-// ===================== GUARDAR CONTEO =====================
-
-function guardarConteo_(datos) {
-  const sucursal = String(datos.SUCURSAL || '').toLowerCase().trim();
-  const def = HOJAS_CONTEO[sucursal];
-  if (!def) return { success: false, code: 'SUCURSAL', message: 'Sucursal no válida: ' + sucursal };
-
-  const id = String(datos.ID_REGISTRO || '').trim();
-  if (!id) return { success: false, code: 'SIN_ID', message: 'Falta ID_REGISTRO' };
-  if (!String(datos.CODIGO || '').trim()) return { success: false, code: 'SIN_CODIGO', message: 'Falta el código del producto' };
-
-  const cache = CacheService.getScriptCache();
-  const claveId = 'ID_' + id;
-
-  // Reintento de un envío que YA se guardó: responder éxito sin escribir otra vez.
-  const yaGuardado = cache.get(claveId);
-  if (yaGuardado) return { success: true, id: id, duplicado: true, fila: Number(yaGuardado), message: 'Conteo registrado' };
-
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(ESPERA_CANDADO_MS)) {
-    return { success: false, code: 'OCUPADO', message: 'Servidor ocupado, reintentando...' };
-  }
-
-  try {
-    // Revisar otra vez dentro del candado (otro envío igual pudo terminar mientras esperábamos)
-    const otraVez = cache.get(claveId);
-    if (otraVez) return { success: true, id: id, duplicado: true, fila: Number(otraVez), message: 'Conteo registrado' };
-
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const hoja = buscarHoja_(ss, def);
-    if (!hoja) return { success: false, code: 'HOJA', message: 'No existe la hoja ' + def.nombre };
-
-    const ultimaCol = Math.max(hoja.getLastColumn(), 1);
-    const encabezados = hoja.getRange(1, 1, 1, ultimaCol).getValues()[0].map(normalizar_);
-    const colId = encabezados.indexOf('ID_REGISTRO');
-
-    // Segunda protección contra duplicados: buscar el ID en las últimas filas de la hoja.
-    const ultimaFila = hoja.getLastRow();
-    if (colId !== -1 && ultimaFila > 1) {
-      const desde = Math.max(2, ultimaFila - FILAS_REVISION_DUPLICADOS + 1);
-      const ids = hoja.getRange(desde, colId + 1, ultimaFila - desde + 1, 1).getValues();
-      for (let i = ids.length - 1; i >= 0; i--) {
-        if (String(ids[i][0]).trim() === id) {
-          const fila = desde + i;
-          cache.put(claveId, String(fila), 21600);
-          return { success: true, id: id, duplicado: true, fila: fila, message: 'Conteo registrado' };
-        }
-      }
-    }
-
-    // Construir la fila según los encabezados reales de la hoja
-    const valores = {};
-    Object.keys(datos).forEach(function (k) { valores[normalizar_(k)] = datos[k]; });
-    // Alias por si la columna se llama "HORA INICIO" en vez de "HORA INCIO"
-    if (valores['HORA INCIO'] !== undefined && valores['HORA INICIO'] === undefined) valores['HORA INICIO'] = valores['HORA INCIO'];
-    // Columna calculada, solo si existe en la hoja
-    if (encabezados.indexOf('DIFERENCIA') !== -1 && valores['DIFERENCIA'] === undefined) {
-      const c = Number(valores['CANTIDAD_FISICA']), s = Number(valores['EXISTENCIA_SISTEMA']);
-      if (!isNaN(c) && !isNaN(s) && String(valores['CANTIDAD_FISICA']) !== '') valores['DIFERENCIA'] = Math.round((c - s) * 100000) / 100000;
-    }
-
-    let columnasUsadas = 0;
-    const fila = encabezados.map(function (h) {
-      if (!h || valores[h] === undefined || valores[h] === null) return '';
-      columnasUsadas++;
-      return formatear_(h, valores[h]);
-    });
-    if (columnasUsadas === 0) return { success: false, code: 'ENCABEZADOS', message: 'La hoja ' + def.nombre + ' no tiene los encabezados esperados' };
-
-    hoja.appendRow(fila);
-    SpreadsheetApp.flush(); // asegurar que quedó escrita ANTES de responder
-
-    const filaEscrita = hoja.getLastRow();
-    cache.put(claveId, String(filaEscrita), 21600); // 6 horas
-
-    return { success: true, id: id, duplicado: false, fila: filaEscrita, message: 'Conteo registrado' };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-// ===================== CAMBIAR CONTRASEÑA =====================
-
-function cambiarPassword_(datos) {
-  const usuario = String(datos.USUARIO || '').trim();
-  const nueva = String(datos.NUEVA_PASSWORD || '');
-  if (!usuario || nueva.length < 4) return { success: false, message: 'Datos incompletos' };
-  if (nueva === '000000') return { success: false, message: 'Elige una contraseña distinta a la temporal' };
-
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(ESPERA_CANDADO_MS)) return { success: false, code: 'OCUPADO', message: 'Servidor ocupado, intenta de nuevo' };
-
-  try {
-    const hoja = buscarHoja_(SpreadsheetApp.openById(SHEET_ID), HOJA_USUARIOS);
-    if (!hoja) return { success: false, message: 'No existe la hoja USUARIOS' };
-
-    const n = hoja.getLastRow();
-    if (n < 2) return { success: false, message: 'Usuario no encontrado' };
-
-    // Columna A = usuario, columna B = contraseña (igual que lee la app)
-    const filas = hoja.getRange(2, 1, n - 1, 2).getValues();
-    for (let i = 0; i < filas.length; i++) {
-      if (String(filas[i][0]).trim() === usuario) {
-        // Solo se permite cambiar desde la contraseña temporal
-        if (String(filas[i][1]).trim() !== '000000') {
-          return { success: false, message: 'Este usuario ya tiene contraseña. Pide al administrador que la restablezca a 000000.' };
-        }
-        hoja.getRange(i + 2, 2).setValue("'" + nueva); // como texto: "0123" no se vuelve 123
-        SpreadsheetApp.flush();
-        return { success: true, message: 'Contraseña actualizada' };
-      }
-    }
-    return { success: false, message: 'Usuario no encontrado' };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-// ===================== "SIENDO CONTADO POR" =====================
-// Se guarda en la memoria del script (CacheService), NO en las hojas.
-// Cada código guarda { usuario: {ts, desde} }. Si un celular deja de mandar
-// señal por EN_CONTEO_TTL_S segundos, su nombre desaparece solo.
-
+// ================================================
+// NUEVO: "SIENDO CONTADO POR"
+// Cada código guarda { usuario: { nombre, ts, desde } } en la memoria del
+// script. Si un celular deja de mandar señal por EN_CONTEO_TTL_S segundos,
+// su nombre desaparece solo. No escribe nada en las hojas.
+// ================================================
 function enConteo_(d) {
-  const modo = String(d.MODO || 'consultar').toLowerCase();
-  const sucursal = String(d.SUCURSAL || '').toLowerCase().trim();
-  const codigo = String(d.CODIGO || '').trim().toUpperCase();
-  const usuario = String(d.USUARIO || '').trim();
-  if (!HOJAS_CONTEO[sucursal] || !codigo) return { success: false, message: 'Datos incompletos', otros: [] };
+  try {
+    const modo = (d.MODO || 'consultar').toString().toLowerCase()
+    const sucursal = (d.SUCURSAL || '').toString().toLowerCase().trim()
+    const codigo = (d.CODIGO || '').toString().trim().toUpperCase()
+    const usuario = (d.USUARIO || '').toString().trim()
+    if (['mercado', 'farmacia', 'bodega'].indexOf(sucursal) < 0 || !codigo) {
+      return { success: false, message: 'Datos incompletos', otros: [] }
+    }
 
-  const cache = CacheService.getScriptCache();
-  const clave = 'EC_' + sucursal + '_' + Utilities.base64EncodeWebSafe(codigo).slice(0, 200);
-  const ahora = Date.now();
-  const yo = usuario.toLowerCase();
+    const cache = CacheService.getScriptCache()
+    const clave = 'EC_' + sucursal + '_' + Utilities.base64EncodeWebSafe(codigo).slice(0, 200)
+    const ahora = Date.now()
+    const yo = usuario.toLowerCase()
 
-  let mapa = {};
-  try { mapa = JSON.parse(cache.get(clave) || '{}'); } catch (e) { mapa = {}; }
+    let mapa = {}
+    try { mapa = JSON.parse(cache.get(clave) || '{}') } catch (err) { mapa = {} }
 
-  // Quitar a quienes ya no mandan señal
-  Object.keys(mapa).forEach(function (u) {
-    if (!mapa[u] || ahora - mapa[u].ts > EN_CONTEO_TTL_S * 1000) delete mapa[u];
-  });
+    // Quitar a quienes ya no mandan señal
+    Object.keys(mapa).forEach(u => {
+      if (!mapa[u] || ahora - mapa[u].ts > EN_CONTEO_TTL_S * 1000) delete mapa[u]
+    })
 
-  let cambio = false;
-  if (modo === 'marcar' && yo) {
-    mapa[yo] = { nombre: usuario, ts: ahora, desde: (mapa[yo] && mapa[yo].desde) || ahora };
-    cambio = true;
-  } else if (modo === 'liberar' && yo) {
-    if (mapa[yo]) { delete mapa[yo]; cambio = true; }
+    let cambio = false
+    if (modo === 'marcar' && yo) {
+      mapa[yo] = { nombre: usuario, ts: ahora, desde: (mapa[yo] && mapa[yo].desde) || ahora }
+      cambio = true
+    } else if (modo === 'liberar' && yo) {
+      if (mapa[yo]) { delete mapa[yo]; cambio = true }
+    }
+
+    if (cambio) {
+      if (Object.keys(mapa).length === 0) cache.remove(clave)
+      else cache.put(clave, JSON.stringify(mapa), EN_CONTEO_TTL_S)
+    }
+
+    const otros = Object.keys(mapa)
+      .filter(u => u !== yo)
+      .map(u => ({ usuario: mapa[u].nombre || u, desde: mapa[u].desde }))
+
+    return { success: true, otros: otros }
+  } catch (error) {
+    return { success: false, message: "Error: " + error.toString(), otros: [] }
   }
-
-  if (cambio) {
-    if (Object.keys(mapa).length === 0) cache.remove(clave);
-    else cache.put(clave, JSON.stringify(mapa), EN_CONTEO_TTL_S);
-  }
-
-  const otros = Object.keys(mapa)
-    .filter(function (u) { return u !== yo; })
-    .map(function (u) { return { usuario: mapa[u].nombre || u, desde: mapa[u].desde }; });
-
-  return { success: true, otros: otros };
 }
 
-// ===================== UTILIDADES =====================
-
-function buscarHoja_(ss, def) {
-  const porNombre = ss.getSheetByName(def.nombre);
-  if (porNombre) return porNombre;
-  const hojas = ss.getSheets();
-  for (let i = 0; i < hojas.length; i++) {
-    if (hojas[i].getSheetId() === def.gid) return hojas[i];
-  }
-  return null;
-}
-
-function normalizar_(texto) {
-  let t = String(texto === undefined || texto === null ? '' : texto)
-    .replace(/^\uFEFF/, '')
-    .replace(/\u00A0/g, ' ');
-  // Quitar tildes (compatible también con el motor antiguo de Apps Script)
-  if (typeof t.normalize === 'function') {
-    t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  } else {
-    t = t.replace(/[\u00C1\u00C0\u00C4\u00C2\u00E1\u00E0\u00E4\u00E2]/g, 'A')
-         .replace(/[\u00C9\u00C8\u00CB\u00CA\u00E9\u00E8\u00EB\u00EA]/g, 'E')
-         .replace(/[\u00CD\u00CC\u00CF\u00CE\u00ED\u00EC\u00EF\u00EE]/g, 'I')
-         .replace(/[\u00D3\u00D2\u00D6\u00D4\u00F3\u00F2\u00F6\u00F4]/g, 'O')
-         .replace(/[\u00DA\u00D9\u00DC\u00DB\u00FA\u00F9\u00FC\u00FB]/g, 'U');
-  }
-  return t.replace(/\s+/g, ' ').trim().toUpperCase();
-}
-
-function formatear_(columna, valor) {
-  const texto = String(valor);
-  if (COLUMNAS_TEXTO.indexOf(columna) !== -1) {
-    return texto === '' ? '' : "'" + texto;
-  }
-  if (COLUMNAS_NUMERO.indexOf(columna) !== -1) {
-    if (texto.trim() === '') return '';
-    const n = Number(texto);
-    return isNaN(n) ? texto : n;
-  }
-  return valor;
-}
-
-function json_(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+function respuestaJSON_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON)
 }

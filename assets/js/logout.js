@@ -1,6 +1,6 @@
 /**
  * APP_CONTEO2 - Cierre de sesión
- * V2.8.1
+ * V2.8.2
  *
  * Modal simple y rápido. No utiliza animaciones de cierre
  * ni temporizadores antes de cancelar o cerrar sesión.

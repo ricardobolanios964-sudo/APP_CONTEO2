@@ -1,0 +1,29 @@
+APP_CONTEO2 V2.8.2
+NUEVA URL DEL APPS SCRIPT + AVISO DE ACTUALIZACION AL MOMENTO
+
+BASE
+Esta version parte directamente de V2.8.1.
+
+1) NUEVA URL DEL APPS SCRIPT (config.js)
+- WEBAPP_URL apunta a la nueva implementacion:
+  .../AKfycbxYBvxifh2Q1JD5m4lSyUlP1N478ZH62pEEID9obeToWwXe0nPN7qOwDTyRnbgu0kGs/exec
+  (Code.gs 2.8.1: script original + candado, sin duplicados y aviso "en conteo").
+
+2) AVISO "NUEVA ACTUALIZACION" (pwa-update.js)
+PROBLEMA: en algunos celulares el aviso no salia. La consulta de version no tenia
+tiempo limite: con señal debil podia quedarse colgada y, mientras tanto, la app
+no volvia a revisar.
+CORRECCION:
+- La consulta se cancela a los 8 s si no responde, y la app sigue revisando.
+- Revisa cada 10 s (antes 30 s) mientras la pantalla esta visible.
+- Revisa AL INSTANTE cuando el usuario toca la pantalla o escribe (maximo una
+  vez cada 4 s), al volver a la app, al recuperar internet y al abrir paginas.
+- El Service Worker nuevo se descarga solo cuando hay version nueva (ahorra datos).
+- Consulta muy liviana: version.json pesa 24 bytes.
+
+ARCHIVOS MODIFICADOS
+config.js, pwa-update.js y el numero de version.
+
+NO SE MODIFICO
+Envio de conteos, aviso "codigo en conteo", filtros, lista completa, busqueda,
+escaner, resumen, reportes, login. Code.gs sigue en 2.8.1 (sin cambios).

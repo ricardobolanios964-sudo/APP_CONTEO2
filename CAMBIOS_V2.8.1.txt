@@ -23,8 +23,11 @@ CAMBIOS
   cada 3 s). La señal se renueva cada 30 s (antes 45 s).
 - Si el servidor no responde como se espera, se deja un aviso en la consola del
   navegador explicando la causa (para diagnostico).
-- Code.gs 2.8.1: compatible tambien con el motor antiguo de Apps Script y sin
-  caracteres invisibles que pudieran danarse al copiar y pegar.
+- Code.gs 2.8.1: construido SOBRE el script original de Farmacia Bolanos.
+  Todo lo que ya hacia queda igual (guardar, ACTUALIZAR, contrasena, doGet).
+  Se agregaron: candado, proteccion contra duplicados por ID_REGISTRO, flush
+  antes de responder y la funcion del aviso 'codigo en conteo'.
+  Causa confirmada: el doGet anterior respondia {status:'OK'} sin los datos del aviso.
 
 ARCHIVOS MODIFICADOS
 conteo.html, conteo.css (solo estilos del aviso), conteo.js (solo funciones del

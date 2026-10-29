@@ -1,6 +1,6 @@
 /*
  * APP_CONTEO2 - Control de actualización de PWA
- * Versión 2.8.1
+ * Versión 2.8.2
  *
  * Comprueba la versión publicada desde version.json. Si hay una versión
  * nueva, muestra un aviso con el número de versión. El aviso permanece en
@@ -9,12 +9,20 @@
 (function () {
     'use strict';
 
-    var APP_VERSION = '2.8.1';
+    var APP_VERSION = '2.8.2';
     var checking = false;
     var updating = false;
 
     // Cada cuánto se revisa si hay versión nueva mientras la app está abierta y visible.
-    var INTERVALO_COMPROBACION_MS = 30 * 1000;
+    // (consulta muy liviana: un archivo de pocos bytes)
+    var INTERVALO_COMPROBACION_MS = 10 * 1000;
+    // Además se revisa al instante cuando el usuario toca la pantalla, como
+    // máximo una vez cada este tiempo.
+    var MINIMO_ENTRE_TOQUES_MS = 4 * 1000;
+    // Si la consulta no responde en este tiempo se cancela (antes podía quedarse
+    // colgada con señal débil y la app ya no volvía a revisar nunca).
+    var LIMITE_CONSULTA_MS = 8 * 1000;
+    var ultimaComprobacion = 0;
     // Si el usuario pulsa "Más tarde", el aviso vuelve a aparecer pasado este tiempo.
     var POSPONER_MS = 10 * 60 * 1000;
 
@@ -254,18 +262,19 @@
         if (checking || updating) return;
         if (document.getElementById('pwa-update-required')) return; // el aviso ya está en pantalla
         checking = true;
+        ultimaComprobacion = Date.now();
 
-        // Pedirle también al navegador que revise el Service Worker publicado.
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistration().then(function (reg) {
-                if (reg) reg.update().catch(function () {});
-            }).catch(function () {});
-        }
+        var control = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var limite = control ? setTimeout(function () { control.abort(); }, LIMITE_CONSULTA_MS) : null;
 
         try {
             var respuesta = await fetch(
                 './version.json?check=' + Date.now(),
-                { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }
+                {
+                    cache: 'no-store',
+                    headers: { 'Cache-Control': 'no-cache' },
+                    signal: control ? control.signal : undefined
+                }
             );
 
             if (!respuesta.ok) throw new Error('No se pudo consultar la versión');
@@ -273,12 +282,20 @@
             var datos = await respuesta.json();
             var versionNueva = String(datos.version || '').trim();
 
-            if (versionNueva && versionNueva !== APP_VERSION && !avisoYaCerrado(versionNueva)) {
-                mostrarCuandoEsteLibre(versionNueva);
+            if (versionNueva && versionNueva !== APP_VERSION) {
+                // Hay versión nueva: pedir al navegador que descargue ya el
+                // Service Worker nuevo (solo en este caso, para no gastar datos).
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistration().then(function (reg) {
+                        if (reg) reg.update().catch(function () {});
+                    }).catch(function () {});
+                }
+                if (!avisoYaCerrado(versionNueva)) mostrarCuandoEsteLibre(versionNueva);
             }
         } catch (error) {
             console.warn('No se pudo comprobar la versión de APP_CONTEO2:', error);
         } finally {
+            if (limite) clearTimeout(limite);
             checking = false;
         }
     }
@@ -319,10 +336,18 @@
 
     // ---- Comprobación con la app ABIERTA (sin cerrarla ni recargarla) ----
 
-    // 1) Cada 30 s mientras la pantalla está visible.
+    // 1) Cada 10 s mientras la pantalla está visible.
     setInterval(function () {
         if (!document.hidden) comprobarVersion();
     }, INTERVALO_COMPROBACION_MS);
+
+    // 1b) Al instante cuando el usuario toca la pantalla o escribe
+    //     (como máximo una vez cada 4 s, para no gastar datos).
+    function alInteractuar() {
+        if (Date.now() - ultimaComprobacion >= MINIMO_ENTRE_TOQUES_MS) comprobarVersion();
+    }
+    document.addEventListener('pointerdown', alInteractuar, { passive: true, capture: true });
+    document.addEventListener('keydown', alInteractuar, { passive: true, capture: true });
 
     // 2) Al volver a la app: cambio de pestaña, PWA que regresa del segundo
     //    plano, pantalla desbloqueada.
