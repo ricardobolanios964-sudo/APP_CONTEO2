@@ -1,0 +1,20 @@
+APP_CONTEO2 V2.7.1
+CARGA COMPLETA DE PRODUCTOS (SIN LIMITE DE 100)
+
+BASE
+Esta version parte directamente de V2.7.0.
+
+CAMBIO
+- Al entrar a Farmacia, Mercado o Bodega, la lista muestra TODAS las filas
+  de la hoja OLIMPO correspondiente (antes solo las primeras 100).
+- La actualizacion en vivo (cada 60 s) tambien conserva la lista completa.
+- Al borrar la busqueda se vuelve a mostrar la lista completa.
+
+ARCHIVOS MODIFICADOS
+sheets-api.js (getPrimerosProductos sin limite), conteo.js (carga inicial y
+actualizacion en vivo) y el numero de version (HTML, manifest, service worker,
+pwa-update.js, version.json, VERSION.txt, README.md).
+
+NO SE MODIFICO
+Nada mas: login, busqueda, escaner, formulario, guardado, resumen, reportes,
+unidades de medida y Apps Script quedan igual.

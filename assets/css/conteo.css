@@ -43,6 +43,72 @@
     font-weight: 800;
 }
 
+/* FILTRO Todos / Contados / Sin contar */
+.filtro-contado {
+    display: flex;
+    gap: 6px;
+    margin-top: var(--spacing-md);
+}
+
+.filtro-btn {
+    flex: 1;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.filtro-btn.active {
+    background: white;
+    color: var(--primary);
+    border-color: white;
+}
+
+.filtro-num {
+    display: inline-block;
+    min-width: 20px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.22);
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.filtro-btn.active .filtro-num {
+    background: #E6F4F4;
+    color: var(--primary);
+}
+
+.filtro-btn[data-filtro="contados"].active .filtro-num {
+    background: #DBEAFE;
+    color: #1D4ED8;
+}
+
+/* Celulares angostos: botones más compactos para que quepan números de 3-4 cifras */
+@media (max-width: 400px) {
+    .filtro-contado { gap: 4px; }
+    .filtro-btn { flex: 1 1 auto; gap: 3px; padding: 7px 3px; font-size: 0.7rem; }
+    .filtro-num { min-width: 0; padding: 1px 4px; font-size: 0.66rem; }
+}
+
+/* El filtro solo oculta tarjetas; no cambia la lista ni la búsqueda */
+.products-list.filtro-contados .product-card:not(.ya-contado),
+.products-list.filtro-pendientes .product-card.ya-contado {
+    display: none;
+}
+
 /* SEARCH BOX - fluido, se adapta a cualquier ancho de pantalla */
 
 .search-box {
@@ -1121,6 +1187,47 @@
 .ya-contado-icon {
     font-size: 1.1rem;
     flex-shrink: 0;
+}
+
+/* Aviso: otro usuario tiene abierto este mismo código */
+.en-conteo-banner {
+    margin-top: var(--spacing-sm);
+    background: #FEF2F2;
+    border-color: #FECACA;
+    color: #991B1B;
+    font-weight: 600;
+}
+
+/* Ventana "Este código está siendo contado" */
+.modal-en-conteo .en-conteo-icono {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto var(--spacing-md);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #FEF3C7;
+    font-size: 30px;
+}
+
+.modal-en-conteo .en-conteo-detalle {
+    margin-bottom: 6px;
+    color: #4B5563;
+}
+
+.modal-en-conteo .en-conteo-usuarios {
+    margin-bottom: var(--spacing-md);
+    color: var(--primary);
+    font-size: 1.15rem;
+    font-weight: 800;
+    word-break: break-word;
+}
+
+.modal-en-conteo .en-conteo-nota {
+    margin-bottom: 0;
+    font-size: 0.85rem;
+    color: #9CA3AF;
 }
 
 /* DIFERENCIA BOX */

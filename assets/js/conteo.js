@@ -48,8 +48,9 @@ class ConteoManager {
         this.setupEventListeners();
         this.initVenceWheel();
         this.ajustarOffsetBuscador();
+        this.iniciarFiltroContado(); // Filtro Todos / Contados / Sin contar
 
-        // Mostrar los primeros 100 productos al entrar al formulario.
+        // Mostrar todos los productos de la hoja al entrar al formulario.
         await this.cargarPrimerosProductos();
 
         this.actualizarContador(); // Carga el número real al entrar a la pantalla
@@ -201,7 +202,7 @@ class ConteoManager {
     }
     
     // ================================================
-    // CARGA INICIAL - PRIMEROS 100 PRODUCTOS
+    // CARGA INICIAL - TODOS LOS PRODUCTOS DE LA HOJA
     // ================================================
 
     async cargarPrimerosProductos() {
@@ -221,7 +222,7 @@ class ConteoManager {
 
         try {
             const [productos, codigosContados] = await Promise.all([
-                SheetsAPI.getPrimerosProductos(gidOlimpo, 100),
+                SheetsAPI.getPrimerosProductos(gidOlimpo), // todas las filas de la hoja
                 SheetsAPI.getCodigosRegistrados(this.gidSucursal)
             ]);
 
@@ -354,7 +355,7 @@ class ConteoManager {
     limpiarResultados() {
         const productsList = document.getElementById('products-list');
 
-        // Al borrar la búsqueda, volver a mostrar los primeros 100 productos
+        // Al borrar la búsqueda, volver a mostrar todos los productos
         // que se cargaron al entrar al formulario.
         if (this.productosIniciales && this.productosIniciales.length > 0) {
             this.mostrarResultados(this.productosIniciales);
@@ -570,6 +571,9 @@ class ConteoManager {
         
         // Unidades de medida del producto (hoja UNIDADES_MEDIDA), también en segundo plano
         this.cargarUnidadesMedida();
+
+        // Avisar a los demás que este código se está contando (y ver si alguien más lo cuenta)
+        this.iniciarEnConteo();
     }
     
     async cargarUnidadesMedida() {
@@ -635,6 +639,8 @@ class ConteoManager {
         document.getElementById('search-input').focus();
         this.horaInicioConteo = null; // Se reinicia para el próximo producto
         this.productoSeleccionado = null;
+        this._envioFallido = null;
+        this.liberarEnConteo(); // deja de figurar como "siendo contado"
     }
     
     // ================================================
@@ -672,6 +678,9 @@ class ConteoManager {
     // ================================================
     
     async guardarConteo() {
+        // Evitar doble envío (doble toque o Enter mientras se está enviando)
+        if (this._enviando) return;
+
         const cantidad = document.getElementById('form-cantidad').value;
         
         // Se permite 0 (producto sin existencia física). Solo se rechaza vacío o no numérico.
@@ -716,17 +725,31 @@ class ConteoManager {
         }
         
         const modalSending = document.getElementById('modal-sending');
+        const subtituloEnvio = modalSending.querySelector('.sending-subtitle');
+        const textoSubtitulo = subtituloEnvio ? subtituloEnvio.textContent : '';
         modalSending.style.display = 'flex';
-        
+        this._enviando = true;
+
+        // Si este MISMO conteo ya se intentó enviar y falló, se reutiliza su ID:
+        // así, si en realidad sí había llegado, el servidor no lo duplica.
+        const firma = JSON.stringify(datos);
+        const idReintento = (this._envioFallido && this._envioFallido.firma === firma) ? this._envioFallido.id : null;
+
         try {
             const existenciaSistema = parseFloat(document.getElementById('form-existencia').dataset.valor) || 0;
             const cantidadFisica = parseFloat(cantidad) || 0;
-            
-            const resultado = await SheetsAPI.guardarConteo(datos, Auth.getUsuarioActual(), this.tipo);
-            
+
+            const resultado = await SheetsAPI.guardarConteo(
+                datos, Auth.getUsuarioActual(), this.tipo, idReintento,
+                (n, total) => { if (subtituloEnvio) subtituloEnvio.textContent = `Reintentando (${n} de ${total})...`; }
+            );
+
+            // La animación dura exactamente lo que tarda el servidor en confirmar
             modalSending.style.display = 'none';
-            
+
             if (resultado.success) {
+                this._envioFallido = null;
+                this.liberarEnConteo(); // ya está guardado: deja de figurar "siendo contado"
                 this.conteos.push(datos);
 
                 // Marcar inmediatamente el código como contado.
@@ -755,14 +778,24 @@ class ConteoManager {
                     }
                 );
             } else {
-                this.mostrarError(resultado.mensaje || 'No se pudo guardar el conteo');
+                this._envioFallido = { firma, id: resultado.id };
+                this.mostrarError(
+                    `El conteo NO se guardó en la hoja. ${resultado.mensaje || ''}\n\n` +
+                    'Tus datos siguen en el formulario: revisa tu conexión y pulsa "Guardar Conteo" otra vez.',
+                    '❌ No enviado'
+                );
             }
-            
+
         } catch (error) {
             console.error('Error:', error);
             modalSending.style.display = 'none';
-            this.mostrarError('Error al guardar el conteo');
+            this.mostrarError(
+                'El conteo NO se guardó en la hoja.\n\nTus datos siguen en el formulario: pulsa "Guardar Conteo" otra vez.',
+                '❌ No enviado'
+            );
         } finally {
+            this._enviando = false;
+            if (subtituloEnvio) subtituloEnvio.textContent = textoSubtitulo;
             // Restaurar el botón, pase lo que pase (éxito o error)
             if (btnGuardar) {
                 btnGuardar.disabled = false;
@@ -775,13 +808,18 @@ class ConteoManager {
     // MODALES Y MENSAJES
     // ================================================
     
-    mostrarError(mensaje) {
+    mostrarError(mensaje, titulo = 'Error') {
         const modal = document.getElementById('modal-error');
-        document.getElementById('error-message').textContent = mensaje;
+        const h3 = modal.querySelector('h3');
+        if (h3) h3.textContent = titulo;
+        const p = document.getElementById('error-message');
+        p.textContent = mensaje;
+        p.style.whiteSpace = 'pre-line';
         modal.style.display = 'flex';
-        document.getElementById('btn-error-close').addEventListener('click', () => {
+        // onclick (no addEventListener): así no se acumulan acciones en cada error
+        document.getElementById('btn-error-close').onclick = () => {
             modal.style.display = 'none';
-        });
+        };
     }
     
     mostrarExito(mensaje, detalles = {}) {
@@ -800,7 +838,9 @@ class ConteoManager {
         contenedorMensaje.innerHTML = html || mensaje;
         modal.style.display = 'flex';
         
-        document.getElementById('btn-success-continue').addEventListener('click', () => {
+        // onclick (no addEventListener): antes cada conteo guardado agregaba otra
+        // acción a este botón y la app se volvía más lenta durante la jornada.
+        document.getElementById('btn-success-continue').onclick = () => {
             modal.style.display = 'none';
             this.cerrarFormulario();
             this.actualizarContador();
@@ -817,9 +857,9 @@ class ConteoManager {
             }
 
             document.getElementById('search-input').focus();
-        });
+        };
     }
-    
+
     // ================================================
     // ESCÁNER DE CÓDIGO DE BARRAS CON CÁMARA (móvil)
     // ================================================
@@ -1063,7 +1103,7 @@ class ConteoManager {
 
         let productos;
         if (termino === '') {
-            productos = inventario.slice(0, 100);
+            productos = inventario; // todas las filas de la hoja, sin límite
             this.productosIniciales = productos;
         } else {
             let tipo = this.modoBarcode ? 'barcode' : 'all';
@@ -1097,9 +1137,207 @@ class ConteoManager {
     }
 
     // ================================================
+    // "ESTE CÓDIGO ESTÁ SIENDO CONTADO POR..."
+    // ================================================
+    // Al abrir un producto se avisa al servidor; mientras el formulario está
+    // abierto se renueva cada 45 s. Al cerrar, guardar o salir de la app se
+    // libera. No bloquea: si otro usuario lo está contando, se muestra quién y
+    // se puede "Contar igualmente" (puede estar en otra área).
+
+    iniciarEnConteo() {
+        this._finEnConteo(false);
+
+        const codigo = String(document.getElementById('form-codigo').textContent || '').trim();
+        if (!codigo || codigo === '—') return;
+
+        const token = (this._ecToken = (this._ecToken || 0) + 1);
+        this._ecCodigo = codigo;
+        this._ecAvisoMostrado = false;
+        this._mostrarBannerEnConteo([]);
+
+        let primeraRespuesta = true;
+        const enviar = async () => {
+            if (token !== this._ecToken) return;
+            const r = await SheetsAPI.enConteo('marcar', this.tipo, codigo, Auth.getUsuarioActual());
+            if (token !== this._ecToken) return; // ya se cerró o se abrió otro producto
+            if (!r) return;
+            // La VENTANA solo sale al abrir el producto (si ya alguien lo estaba contando).
+            // Si otro usuario llega después, a este solo se le muestra el aviso en el formulario.
+            this._procesarEnConteo(r.otros || [], codigo, primeraRespuesta);
+            primeraRespuesta = false;
+        };
+
+        enviar();
+        this._ecTimer = setInterval(() => { if (!document.hidden) enviar(); }, 45000);
+        this._ecEnviar = enviar;
+
+        if (!this._ecEventos) {
+            this._ecEventos = true;
+            // Al volver a la app con el formulario abierto: renovar al instante
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && this._ecEnviar && this._ecCodigo) this._ecEnviar();
+            });
+            // Al cerrar la app o salir de la página: liberar el código
+            window.addEventListener('pagehide', () => this.liberarEnConteo());
+        }
+    }
+
+    liberarEnConteo() {
+        this._finEnConteo(true);
+    }
+
+    _finEnConteo(avisarServidor) {
+        if (this._ecTimer) clearInterval(this._ecTimer);
+        this._ecTimer = null;
+        this._ecEnviar = null;
+        this._ecToken = (this._ecToken || 0) + 1;
+
+        const codigo = this._ecCodigo;
+        this._ecCodigo = null;
+        if (avisarServidor && codigo) {
+            SheetsAPI.enConteo('liberar', this.tipo, codigo, Auth.getUsuarioActual(), { keepalive: true, timeoutMs: 8000 });
+        }
+
+        this._mostrarBannerEnConteo([]);
+        const modal = document.getElementById('modal-en-conteo');
+        if (modal) modal.style.display = 'none';
+    }
+
+    _procesarEnConteo(otros, codigo, alAbrir = false) {
+        this._mostrarBannerEnConteo(otros);
+        if (!alAbrir || !otros.length || this._ecAvisoMostrado) return;
+
+        // Ventana de aviso (una vez por apertura del producto)
+        this._ecAvisoMostrado = true;
+        const modal = document.getElementById('modal-en-conteo');
+        if (!modal) return;
+
+        document.getElementById('en-conteo-codigo').textContent = codigo;
+        document.getElementById('en-conteo-usuarios').textContent = this._nombresEnConteo(otros);
+        modal.style.display = 'flex';
+
+        document.getElementById('btn-en-conteo-continuar').onclick = () => {
+            modal.style.display = 'none';
+            const input = document.getElementById('form-cantidad');
+            if (input) input.focus();
+        };
+        document.getElementById('btn-en-conteo-volver').onclick = () => {
+            modal.style.display = 'none';
+            this.cerrarFormulario();
+        };
+    }
+
+    _mostrarBannerEnConteo(otros) {
+        const banner = document.getElementById('en-conteo-banner');
+        if (!banner) return;
+        if (!otros || !otros.length) {
+            banner.style.display = 'none';
+            return;
+        }
+        document.getElementById('en-conteo-texto').textContent =
+            `Este código también lo está contando: ${this._nombresEnConteo(otros)}`;
+        banner.style.display = 'flex';
+    }
+
+    _nombresEnConteo(otros) {
+        const ahora = Date.now();
+        return otros.map(o => {
+            const min = o.desde ? Math.floor((ahora - o.desde) / 60000) : 0;
+            const hace = min < 1 ? 'hace un momento' : `hace ${min} min`;
+            return `${String(o.usuario || '').toUpperCase()} (${hace})`;
+        }).join(', ');
+    }
+
+    // ================================================
+    // FILTRO: TODOS / CONTADOS / SIN CONTAR
+    // ================================================
+    // Solo oculta o muestra tarjetas ya dibujadas (con CSS), según la marca
+    // "ya-contado". No cambia la búsqueda, la carga ni la actualización en vivo:
+    // cuando una marca CONTADO aparece o desaparece, el filtro se recalcula solo.
+
+    iniciarFiltroContado() {
+        const contenedor = document.getElementById('filtro-contado');
+        const lista = document.getElementById('products-list');
+        if (!contenedor || !lista) return;
+
+        // Recordar el filtro elegido en esta sesión, por sucursal
+        this._claveFiltro = 'app_conteo2_filtro_' + this.tipo;
+        this.filtroContado = 'todos';
+        try {
+            const guardado = sessionStorage.getItem(this._claveFiltro);
+            if (['todos', 'contados', 'pendientes'].includes(guardado)) this.filtroContado = guardado;
+        } catch (e) { /* sin almacenamiento: se usa "todos" */ }
+
+        contenedor.querySelectorAll('.filtro-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (this.filtroContado === btn.dataset.filtro) return;
+                this.filtroContado = btn.dataset.filtro;
+                try { sessionStorage.setItem(this._claveFiltro, this.filtroContado); } catch (e) {}
+                this.aplicarFiltroContado();
+                window.scrollTo({ top: 0 });
+            });
+        });
+
+        // Recalcular cada vez que la lista cambia (carga, búsqueda, guardado,
+        // actualización en vivo que pone o quita la marca CONTADO).
+        let pendiente = false;
+        new MutationObserver(() => {
+            if (pendiente) return;
+            pendiente = true;
+            requestAnimationFrame(() => {
+                pendiente = false;
+                this.aplicarFiltroContado();
+            });
+        }).observe(lista, { childList: true, subtree: true });
+
+        this.aplicarFiltroContado();
+    }
+
+    aplicarFiltroContado() {
+        const lista = document.getElementById('products-list');
+        const contenedor = document.getElementById('filtro-contado');
+        if (!lista || !contenedor) return;
+
+        const filtro = this.filtroContado || 'todos';
+        lista.classList.toggle('filtro-contados', filtro === 'contados');
+        lista.classList.toggle('filtro-pendientes', filtro === 'pendientes');
+
+        contenedor.querySelectorAll('.filtro-btn').forEach(btn => {
+            const activo = btn.dataset.filtro === filtro;
+            btn.classList.toggle('active', activo);
+            btn.setAttribute('aria-pressed', activo ? 'true' : 'false');
+        });
+
+        // Números de cada botón, según la lista que se está viendo (completa o búsqueda)
+        const tarjetas = lista.querySelectorAll('.product-card');
+        const total = tarjetas.length;
+        const contados = lista.querySelectorAll('.product-card.ya-contado').length;
+        const pendientes = total - contados;
+
+        document.getElementById('filtro-num-todos').textContent = total;
+        document.getElementById('filtro-num-contados').textContent = contados;
+        document.getElementById('filtro-num-pendientes').textContent = pendientes;
+
+        // Mensaje si el filtro deja la lista vacía
+        const vacio = document.getElementById('filtro-vacio');
+        if (!vacio) return;
+        const visibles = filtro === 'contados' ? contados : (filtro === 'pendientes' ? pendientes : total);
+
+        if (total > 0 && visibles === 0) {
+            document.getElementById('filtro-vacio-icono').textContent = filtro === 'pendientes' ? '🎉' : '📋';
+            document.getElementById('filtro-vacio-texto').textContent = filtro === 'pendientes'
+                ? '¡Todos los productos de esta lista ya están contados!'
+                : 'Todavía no hay productos contados en esta lista.';
+            vacio.style.display = 'flex';
+        } else {
+            vacio.style.display = 'none';
+        }
+    }
+
+    // ================================================
     // UTILIDADES
     // ================================================
-    
+
     escapeHtml(texto) {
         const div = document.createElement('div');
         div.textContent = texto;

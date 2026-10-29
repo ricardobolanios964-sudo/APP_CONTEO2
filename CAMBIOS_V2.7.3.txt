@@ -1,0 +1,28 @@
+APP_CONTEO2 V2.7.3
+FILTRO CONTADOS / SIN CONTAR
+
+BASE
+Esta version parte directamente de V2.7.2.
+
+1) FILTRO EN EL FORMULARIO DE CONTEO (Farmacia, Mercado y Bodega)
+- Debajo del buscador: [Todos N] [Contados N] [Sin contar N].
+- "Sin contar" muestra solo lo que falta; "Contados" solo lo ya contado.
+- Los numeros se calculan sobre la lista que se esta viendo (completa o busqueda).
+- Funciona junto con la busqueda.
+- Se actualiza solo: al guardar un conteo, cuando otro usuario cuenta, o cuando se
+  BORRA un registro en la hoja (el producto vuelve a "Sin contar").
+- Si el filtro deja la lista vacia, muestra un mensaje.
+- El filtro elegido se recuerda durante la sesion, por sucursal.
+
+2) VERIFICACION: REGISTRO BORRADO EN LA HOJA
+- Confirmado: la app relee la hoja de conteos cada 15 s. Si se borra el unico
+  registro de un producto, su marca CONTADO desaparece sola (sin recargar).
+  Si el producto tenia varios registros y se borra uno, sigue CONTADO.
+
+ARCHIVOS MODIFICADOS
+conteo.html (botones de filtro y mensaje), conteo.css (solo reglas nuevas),
+conteo.js (solo funciones nuevas del filtro) y el numero de version.
+
+NO SE MODIFICO
+Login, busqueda, escaner, formulario, guardado, resumen, reportes, unidades de
+medida, actualizacion en vivo, aviso de actualizacion y Apps Script.

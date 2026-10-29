@@ -1,0 +1,55 @@
+APP_CONTEO2 V2.8.0
+ENVIOS SEGUROS CON MUCHOS USUARIOS + "SIENDO CONTADO POR"
+
+BASE
+Esta version parte directamente de V2.7.3.
+
+*** ORDEN PARA PUBLICAR (IMPORTANTE) ***
+1) PRIMERO el Apps Script:
+   - Abre tu proyecto de Apps Script y guarda una copia de tu Code.gs actual
+     (copiar y pegar en un bloc de notas) por si quieres volver atras.
+   - Reemplaza TODO el contenido de Code.gs por apps-script/Code.gs y guarda.
+   - Implementar > Gestionar implementaciones > lapiz (Editar) >
+     Version: "Nueva version" > Implementar.
+     (Ejecutar como: Yo | Quien tiene acceso: Cualquier usuario)
+   - La URL NO cambia. Prueba: abre la URL /exec en el navegador; debe mostrar
+     {"success":true,"servicio":"APP_CONTEO2","version":"2.8.0"}
+2) DESPUES la app: Commit + Push de esta carpeta en GitHub.
+
+1) ENVIO DEL FORMULARIO (sheets-api.js, conteo.js)
+- Ya no se da por exitoso un envio que fallo. "Enviado con exito" solo sale
+  cuando el servidor confirma que la fila YA esta en la hoja.
+- Si falla la red, tarda demasiado (30 s) o el servidor esta ocupado, se
+  reintenta solo hasta 3 veces con el MISMO ID_REGISTRO (sin duplicados).
+- Si no se pudo: ventana "No enviado", el formulario queda abierto con los datos
+  y al pulsar Guardar otra vez se reutiliza el mismo ID.
+- La animacion "Enviando" dura exactamente lo que tarda el servidor.
+  Si reintenta, muestra "Reintentando (2 de 3)...".
+- Proteccion contra doble toque en "Guardar".
+- Corregido: el boton "Continuar" (y "Cerrar" del error) acumulaba acciones en
+  cada conteo y la app se volvia mas lenta durante la jornada.
+- La busqueda usa una copia en memoria del inventario (sin trabas al escribir).
+
+2) APPS SCRIPT (apps-script/Code.gs) - NUEVO
+- Candado (LockService): los envios simultaneos entran uno por uno; no se pisan filas.
+- Sin duplicados por ID_REGISTRO (memoria del script + revision de la hoja).
+- Escribe por NOMBRE de encabezado; ID, CODIGO y VENCE como texto exacto.
+- Si la hoja tiene columna DIFERENCIA, la calcula.
+- Cambio de contrasena: solo desde la temporal 000000.
+- doGet para el aviso "siendo contado" (nunca escribe en las hojas).
+
+3) "ESTE CODIGO ESTA SIENDO CONTADO POR"
+- Al abrir un producto que otro usuario tiene abierto: ventana con su nombre y
+  las opciones "Volver" o "Contar igualmente" (NO bloquea).
+- Dentro del formulario, aviso rojo "Este codigo tambien lo esta contando: X".
+  Quien ya estaba contando solo ve este aviso (no se le interrumpe).
+- Se libera al guardar, cancelar o cerrar la app. Si un celular se queda sin
+  senal, su nombre desaparece solo a los 5 minutos.
+
+ARCHIVOS MODIFICADOS
+sheets-api.js, conteo.js, conteo.html, conteo.css (solo reglas nuevas),
+apps-script/Code.gs (nuevo), README.md y el numero de version.
+
+NO SE MODIFICO
+Login, busqueda, escaner, filtros, lista completa, resumen, reportes, unidades de
+medida, actualizacion en vivo y aviso de actualizacion.

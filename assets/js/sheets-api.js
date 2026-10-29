@@ -34,11 +34,19 @@ const SheetsAPI = {
         const esConteo = gid === CONFIG.GID_INVENTARIO_MER || gid === CONFIG.GID_INVENTARIO_FAR || gid === CONFIG.GID_INVENTARIO_BC;
 
         if (!esConteo) {
+            // 1) Copia en memoria: evita volver a convertir todo el inventario
+            //    desde localStorage en cada búsqueda (esto causaba lentitud).
+            this._memCache = this._memCache || {};
+            const enMemoria = this._memCache[gid];
+            if (enMemoria && Date.now() - enMemoria.timestamp < ttlSeconds * 1000) {
+                return enMemoria.data;
+            }
             try {
                 const cached = localStorage.getItem(cacheKey);
                 if (cached) {
                     const parsed = JSON.parse(cached);
                     if (Date.now() - parsed.timestamp < ttlSeconds * 1000) {
+                        this._memCache[gid] = { timestamp: parsed.timestamp, data: parsed.data };
                         return parsed.data;
                     }
                 }
@@ -112,6 +120,7 @@ const SheetsAPI = {
                             return data;
                         }
                     } else {
+                        this._memCache[gid] = { timestamp: Date.now(), data };
                         try {
                             localStorage.setItem(cacheKey, JSON.stringify({
                                 timestamp: Date.now(),
@@ -168,6 +177,7 @@ const SheetsAPI = {
 
     _limpiarCache(gid) {
         if (this._enVuelo) delete this._enVuelo[gid];
+        if (this._memCache) delete this._memCache[gid];
         localStorage.removeItem(`bolanos_csv_${gid}`);
     },
 
@@ -292,18 +302,18 @@ const SheetsAPI = {
 
     /**
      * Primeros productos para la carga inicial del formulario.
-     * Respeta el orden de la hoja y limita la lista visible a 100.
-     * La búsqueda normal sigue utilizando todo el inventario.
+     * Respeta el orden de la hoja y devuelve TODAS las filas (sin límite).
+     * Si se pasa un número en "limite", solo entonces se recorta la lista.
      */
-    async getPrimerosProductos(gid, limite = 100) {
+    async getPrimerosProductos(gid, limite = null) {
         if (!gid) {
             throw new Error('No se especificó la hoja OLIMPO para este formulario.');
         }
 
         const filas = await this._fetchCSV(gid, CONFIG.CACHE_TTL_OLIMPO);
-        const datos = filas.slice(1)
-            .filter(r => r[0] && r[0].trim())
-            .slice(0, limite);
+        let datos = filas.slice(1)
+            .filter(r => r[0] && r[0].trim());
+        if (limite) datos = datos.slice(0, limite);
 
         return datos.map(r => ({
             codigo: (r[0] || '').trim(),
@@ -617,14 +627,18 @@ const SheetsAPI = {
     },
 
     /**
-     * Envía el conteo al Apps Script. Igual que en PHP: si Google no
-     * responde a tiempo (o bloquea la lectura por CORS), lo tratamos
-     * como éxito probable, porque el script YA ejecuta y guarda ANTES
-     * de intentar responder - un problema leyendo la respuesta no
-     * significa que no se guardó.
+     * Envía el conteo al Apps Script y SOLO devuelve éxito cuando el servidor
+     * confirma que la fila quedó escrita en la hoja.
+     *  - Si falla la red, se agota el tiempo o el servidor está ocupado, se
+     *    reintenta automáticamente con el MISMO ID_REGISTRO (el servidor no
+     *    duplica la fila si ya la tenía).
+     *  - Si después de los reintentos no se pudo, devuelve success:false
+     *    (la app muestra "No enviado" y el usuario puede reintentar).
+     *  - idExistente: para reintentar manualmente el mismo envío.
+     *  - alReintentar(n, total): aviso opcional para la pantalla.
      */
-    async guardarConteo(datos, usuario, tipo) {
-        const idRegistro = this._generarIdRegistro(usuario, tipo);
+    async guardarConteo(datos, usuario, tipo, idExistente = null, alReintentar = null) {
+        const idRegistro = idExistente || this._generarIdRegistro(usuario, tipo);
         const ahora = new Date();
         const fecha = `${String(ahora.getDate()).padStart(2, '0')}/${String(ahora.getMonth() + 1).padStart(2, '0')}/${ahora.getFullYear()}`;
         const horaFin = ahora.toTimeString().slice(0, 8);
@@ -650,33 +664,115 @@ const SheetsAPI = {
 
         const gidSucursal = tipo === 'mercado' ? CONFIG.GID_INVENTARIO_MER : (tipo === 'bodega' ? CONFIG.GID_INVENTARIO_BC : CONFIG.GID_INVENTARIO_FAR);
 
+        // Errores de configuración: reintentar no sirve de nada
+        const NO_REINTENTAR = ['SUCURSAL', 'SIN_ID', 'SIN_CODIGO', 'HOJA', 'ENCABEZADOS'];
+        const INTENTOS = 3;
+        let ultimoError = '';
+
+        for (let intento = 1; intento <= INTENTOS; intento++) {
+            if (intento > 1) {
+                if (alReintentar) { try { alReintentar(intento, INTENTOS); } catch (e) {} }
+                // Espera creciente + un poco al azar, para que 10 celulares que
+                // fallaron a la vez no vuelvan a chocar en el mismo instante.
+                await this._esperar(1000 * (intento - 1) + Math.floor(Math.random() * 700));
+            }
+
+            try {
+                const data = await this._postJSON(payload, 30000);
+
+                if (data && data.success !== false) {
+                    this._limpiarCache(gidSucursal);
+                    return {
+                        success: true,
+                        id: idRegistro,
+                        fecha, hora_inicio: horaInicio, hora_fin: horaFin,
+                        mensaje: data.message || 'Conteo registrado',
+                    };
+                }
+
+                ultimoError = (data && data.message) || 'El servidor no confirmó el guardado.';
+                if (data && NO_REINTENTAR.includes(data.code)) break;
+            } catch (e) {
+                ultimoError = e.name === 'AbortError'
+                    ? 'El servidor tardó demasiado en responder.'
+                    : (navigator.onLine === false ? 'Sin conexión a internet.' : 'No se pudo conectar con el servidor.');
+                console.warn(`Envío de conteo, intento ${intento}/${INTENTOS} falló:`, e.message || e);
+            }
+
+            // Sin internet: no tiene sentido seguir esperando
+            if (navigator.onLine === false) break;
+        }
+
+        return {
+            success: false,
+            id: idRegistro,
+            fecha, hora_inicio: horaInicio, hora_fin: horaFin,
+            mensaje: ultimoError,
+        };
+    },
+
+    /** POST al Apps Script con límite de tiempo. Devuelve el JSON o lanza error. */
+    async _postJSON(payload, timeoutMs) {
+        const control = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timer = control ? setTimeout(() => control.abort(), timeoutMs) : null;
         try {
             // text/plain evita el preflight CORS con Apps Script
             const response = await fetch(CONFIG.WEBAPP_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(payload),
+                signal: control ? control.signal : undefined,
             });
+            const texto = await response.text();
+            try {
+                return JSON.parse(texto);
+            } catch (e) {
+                throw new Error(`Respuesta no válida del servidor (HTTP ${response.status}).`);
+            }
+        } finally {
+            if (timer) clearTimeout(timer);
+        }
+    },
 
-            const data = await response.json();
-            this._limpiarCache(gidSucursal);
+    _esperar(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    },
 
-            return {
-                success: data.success !== false,
-                id: idRegistro,
-                fecha, hora_inicio: horaInicio, hora_fin: horaFin,
-                mensaje: data.message || 'Conteo registrado',
-            };
+    // ================================================
+    // "ESTE CÓDIGO ESTÁ SIENDO CONTADO POR..."
+    // Usa GET (doGet del Apps Script): nunca escribe en las hojas.
+    // Si el servidor no responde, devuelve null y la app sigue normal.
+    // ================================================
+
+    async enConteo(modo, tipo, codigo, usuario, opciones = {}) {
+        if (!CONFIG.WEBAPP_URL || !codigo) return null;
+
+        const params = new URLSearchParams({
+            accion: 'en_conteo',
+            modo,
+            sucursal: tipo,
+            codigo: String(codigo).trim().toUpperCase(),
+            usuario: usuario || '',
+            t: String(Date.now()),
+        });
+        const url = `${CONFIG.WEBAPP_URL}?${params.toString()}`;
+
+        const control = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timer = control ? setTimeout(() => control.abort(), opciones.timeoutMs || 12000) : null;
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                cache: 'no-store',
+                keepalive: !!opciones.keepalive, // permite "liberar" aunque se cierre la página
+                signal: control ? control.signal : undefined,
+            });
+            const data = JSON.parse(await response.text());
+            return data && data.success ? data : null;
         } catch (e) {
-            console.warn('No se pudo leer la respuesta de Apps Script, asumiendo éxito:', e);
-            this._limpiarCache(gidSucursal);
-
-            return {
-                success: true,
-                id: idRegistro,
-                fecha, hora_inicio: horaInicio, hora_fin: horaFin,
-                mensaje: 'Conteo registrado',
-            };
+            return null;
+        } finally {
+            if (timer) clearTimeout(timer);
         }
     },
 

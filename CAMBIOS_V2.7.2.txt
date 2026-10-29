@@ -1,0 +1,30 @@
+APP_CONTEO2 V2.7.2
+AVISO DE ACTUALIZACION CON LA APP ABIERTA
+
+BASE
+Esta version parte directamente de V2.7.1.
+
+PROBLEMA
+La app solo revisaba si habia version nueva al abrirse. Con la pagina o la PWA
+abierta (o al volver del segundo plano en el celular) nunca volvia a revisar, y
+el aviso no salia hasta cerrar y abrir la app.
+
+CORRECCION (pwa-update.js)
+- Revisa version.json cada 30 s mientras la pantalla esta visible.
+- Revisa al instante al volver a la app (segundo plano, otra pestana, pantalla
+  bloqueada), al recuperar internet y al llegar un Service Worker nuevo.
+- En cada revision tambien pide al navegador actualizar el Service Worker.
+- Si el usuario esta a mitad de un conteo (formulario, envio, escaner o avisos
+  del conteo abiertos), el aviso espera a que termine para no perder datos.
+- "Mas tarde" / X / Esc: el aviso vuelve a aparecer a los 10 minutos
+  (antes no volvia en toda la sesion).
+- "Actualizar ahora" conserva la pantalla actual (ej. ?tipo=bodega sigue en
+  Bodega; antes regresaba a Mercado).
+
+ARCHIVOS MODIFICADOS
+pwa-update.js, README.md y el numero de version (HTML, manifest, service worker,
+version.json, VERSION.txt).
+
+NO SE MODIFICO
+Login, busqueda, escaner, formulario, guardado, resumen, reportes, unidades de
+medida, lista completa de productos y Apps Script.

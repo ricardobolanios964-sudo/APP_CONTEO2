@@ -1,6 +1,6 @@
 /*
  * APP_CONTEO2 - Control de actualización de PWA
- * Versión 2.7.0
+ * Versión 2.8.0
  *
  * Comprueba la versión publicada desde version.json. Si hay una versión
  * nueva, muestra un aviso con el número de versión. El aviso permanece en
@@ -9,13 +9,21 @@
 (function () {
     'use strict';
 
-    var APP_VERSION = '2.7.0';
+    var APP_VERSION = '2.8.0';
     var checking = false;
     var updating = false;
 
+    // Cada cuánto se revisa si hay versión nueva mientras la app está abierta y visible.
+    var INTERVALO_COMPROBACION_MS = 30 * 1000;
+    // Si el usuario pulsa "Más tarde", el aviso vuelve a aparecer pasado este tiempo.
+    var POSPONER_MS = 10 * 60 * 1000;
+
     function avisoYaCerrado(versionNueva) {
         try {
-            return sessionStorage.getItem('app_conteo2_aviso_cerrado') === String(versionNueva);
+            var guardado = JSON.parse(sessionStorage.getItem('app_conteo2_aviso_cerrado') || 'null');
+            return !!guardado &&
+                guardado.version === String(versionNueva) &&
+                Date.now() < guardado.hasta;
         } catch (e) {
             return false;
         }
@@ -23,8 +31,44 @@
 
     function recordarAvisoCerrado(versionNueva) {
         try {
-            sessionStorage.setItem('app_conteo2_aviso_cerrado', String(versionNueva));
+            sessionStorage.setItem('app_conteo2_aviso_cerrado', JSON.stringify({
+                version: String(versionNueva),
+                hasta: Date.now() + POSPONER_MS
+            }));
         } catch (e) { /* sin almacenamiento: el aviso podrá volver a mostrarse */ }
+    }
+
+    /**
+     * No interrumpir al usuario a mitad de un conteo: si el formulario, el
+     * envío, el escáner o algún aviso del conteo están abiertos, el aviso de
+     * actualización espera a que se cierren (así no se pierden datos).
+     */
+    function usuarioOcupado() {
+        var form = document.getElementById('conteo-modal-overlay');
+        if (form && form.classList.contains('open')) return true;
+
+        var ids = ['modal-sending', 'modal-success', 'modal-error', 'modal-confirm', 'scanner-modal'];
+        for (var i = 0; i < ids.length; i++) {
+            var el = document.getElementById(ids[i]);
+            if (el && el.style.display === 'flex') return true;
+        }
+        return false;
+    }
+
+    var esperaLibre = null;
+
+    function mostrarCuandoEsteLibre(versionNueva) {
+        if (!usuarioOcupado()) {
+            crearAvisoActualizacion(versionNueva);
+            return;
+        }
+        if (esperaLibre) return;
+        esperaLibre = setInterval(function () {
+            if (usuarioOcupado()) return;
+            clearInterval(esperaLibre);
+            esperaLibre = null;
+            if (!avisoYaCerrado(versionNueva)) crearAvisoActualizacion(versionNueva);
+        }, 1500);
     }
 
     function cerrarAviso(versionNueva) {
@@ -168,9 +212,12 @@
             if (status) status.textContent = 'Actualización completada. Abriendo nueva versión...';
 
             // Query de versión para evitar una respuesta HTML antigua.
-            var nuevaUrl = window.location.pathname +
-                '?app_version=' + encodeURIComponent(versionNueva) +
-                '&t=' + Date.now();
+            // Se conservan los parámetros actuales (ej. ?tipo=bodega o
+            // ?sucursal=farmacia) para que el usuario siga en la misma pantalla.
+            var params = new URLSearchParams(window.location.search);
+            params.set('app_version', versionNueva);
+            params.set('t', String(Date.now()));
+            var nuevaUrl = window.location.pathname + '?' + params.toString() + window.location.hash;
 
             window.location.replace(nuevaUrl);
 
@@ -204,8 +251,16 @@
     }
 
     async function comprobarVersion() {
-        if (checking) return;
+        if (checking || updating) return;
+        if (document.getElementById('pwa-update-required')) return; // el aviso ya está en pantalla
         checking = true;
+
+        // Pedirle también al navegador que revise el Service Worker publicado.
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistration().then(function (reg) {
+                if (reg) reg.update().catch(function () {});
+            }).catch(function () {});
+        }
 
         try {
             var respuesta = await fetch(
@@ -219,7 +274,7 @@
             var versionNueva = String(datos.version || '').trim();
 
             if (versionNueva && versionNueva !== APP_VERSION && !avisoYaCerrado(versionNueva)) {
-                crearAvisoActualizacion(versionNueva);
+                mostrarCuandoEsteLibre(versionNueva);
             }
         } catch (error) {
             console.warn('No se pudo comprobar la versión de APP_CONTEO2:', error);
@@ -247,7 +302,11 @@
         var teniaControlador = !!navigator.serviceWorker.controller;
 
         navigator.serviceWorker.addEventListener('controllerchange', function () {
-            if (teniaControlador) return;
+            if (teniaControlador) {
+                // Llegó un Service Worker nuevo con la app abierta: avisar ya.
+                comprobarVersion();
+                return;
+            }
             if (!updating) {
                 window.location.reload();
             }
@@ -256,5 +315,27 @@
 
     window.addEventListener('load', function () {
         comprobarVersion();
+    });
+
+    // ---- Comprobación con la app ABIERTA (sin cerrarla ni recargarla) ----
+
+    // 1) Cada 30 s mientras la pantalla está visible.
+    setInterval(function () {
+        if (!document.hidden) comprobarVersion();
+    }, INTERVALO_COMPROBACION_MS);
+
+    // 2) Al volver a la app: cambio de pestaña, PWA que regresa del segundo
+    //    plano, pantalla desbloqueada.
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) comprobarVersion();
+    });
+    window.addEventListener('focus', comprobarVersion);
+
+    // 3) Al recuperar internet.
+    window.addEventListener('online', comprobarVersion);
+
+    // 4) Página restaurada desde la memoria del navegador (botón atrás).
+    window.addEventListener('pageshow', function (e) {
+        if (e.persisted) comprobarVersion();
     });
 })();
