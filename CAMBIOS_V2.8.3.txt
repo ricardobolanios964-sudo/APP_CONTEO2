@@ -1,0 +1,30 @@
+APP_CONTEO2 V2.8.3
+AJUSTES RESPONSIVE (TODAS LAS PANTALLAS)
+
+BASE
+Esta version parte directamente de V2.8.2.
+
+PROBLEMA
+En celulares de 412 px de ancho o menos, el recuadro de Cantidad Fisica se
+desarmaba: el campo del numero no podia encogerse y empujaba el boton "+" fuera
+del recuadro (y de la pantalla); ademas el recuadro tenia altura fija de 44 px y
+los botones se salian por arriba y por abajo. Eso tambien ensanchaba todo el
+formulario (fecha, precios, observaciones quedaban corridos).
+En Resumen, a 320 px, la pestaña "Bodega" se salia de su barra.
+
+CORRECCION (solo estilos, al final de conteo.css y resumen.css)
+- Cantidad Fisica: botones - y + siempre completos dentro del recuadro; el
+  numero se adapta al espacio; se quitaron las flechitas del navegador
+  (ya existen los botones - y +).
+- Ningun bloque del formulario puede ser mas ancho que la pantalla.
+- Textos largos (nombre, marca, unidades de medida, avisos) bajan de linea.
+- Pantallas de 360 px o menos: PVP y Precio DNM uno debajo del otro.
+- Resumen: las 3 pestañas caben en pantallas angostas.
+
+VERIFICADO EN: 320, 360, 375, 390, 412, 480, 600, 768, 1024 y 1366 px.
+Pantallas: login, crear contraseña, inicio, menu, cerrar sesion, lista de
+productos, formulario completo, todas las ventanas del conteo, escaner,
+resumen y reportes.
+
+NO SE MODIFICO
+Ninguna funcion (JavaScript sin cambios salvo el numero de version).

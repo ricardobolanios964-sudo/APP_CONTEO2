@@ -266,3 +266,22 @@
     padding: 4px 10px;
     border-radius: 12px;
 }
+
+/* ================================================
+   AJUSTES RESPONSIVE (V2.8.3)
+   ================================================ */
+.resumen-filter-tab {
+    min-width: 0;
+}
+
+@media (max-width: 360px) {
+    /* Las 3 pestañas (Mercado / Farmacia / Bodega) caben en pantallas angostas */
+    .resumen-filter-tabs {
+        gap: 4px;
+    }
+
+    .resumen-filter-tab {
+        padding: 10px 4px;
+        font-size: 0.8rem;
+    }
+}

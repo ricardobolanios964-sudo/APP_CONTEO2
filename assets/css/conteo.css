@@ -1456,3 +1456,75 @@
     color: var(--primary);
     font-weight: 700;
 }
+
+/* ================================================
+   AJUSTES RESPONSIVE (V2.8.3)
+   Todo el formulario se adapta a cualquier ancho de pantalla.
+   ================================================ */
+
+/* Cantidad Física: los botones − y + siempre dentro del recuadro */
+.cantidad-input-group {
+    min-width: 0;
+    min-height: 56px;
+}
+
+.cantidad-input-group .btn-qty {
+    flex: 0 0 auto;          /* los botones nunca se aplastan */
+}
+
+.form-input-qty {
+    min-width: 0;            /* antes no podía encogerse y empujaba el botón + afuera */
+    width: 100%;
+    padding: var(--spacing-sm) 4px;
+}
+
+/* Sin las flechitas del navegador: ya están los botones − y + */
+#form-cantidad::-webkit-outer-spin-button,
+#form-cantidad::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+#form-cantidad {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+/* Ningún bloque del formulario puede ser más ancho que la pantalla */
+.conteo-form,
+.campo-grupo,
+.campo-fila > *,
+.producto-info-grid > *,
+.vence-wheel-picker,
+.input-money {
+    min-width: 0;
+}
+
+/* Textos largos (nombres, códigos, marcas) bajan de línea en vez de salirse */
+.producto-info-nombre,
+.producto-info-marca,
+.producto-info-value,
+.um-chip,
+.ya-contado-banner,
+.en-conteo-banner {
+    overflow-wrap: anywhere;
+}
+
+.um-chip {
+    max-width: 100%;
+}
+
+@media (max-width: 480px) {
+    /* La altura fija de 44 px hacía que los botones se salieran por arriba/abajo */
+    .cantidad-input-group {
+        height: auto;
+        min-height: 52px;
+    }
+}
+
+@media (max-width: 360px) {
+    /* Pantallas muy angostas: precios uno debajo del otro */
+    .campo-fila {
+        grid-template-columns: 1fr;
+    }
+}
