@@ -1,6 +1,6 @@
 /*
  * APP_CONTEO2 - Control de actualización de PWA
- * Versión 2.8.0
+ * Versión 2.8.1
  *
  * Comprueba la versión publicada desde version.json. Si hay una versión
  * nueva, muestra un aviso con el número de versión. El aviso permanece en
@@ -9,7 +9,7 @@
 (function () {
     'use strict';
 
-    var APP_VERSION = '2.8.0';
+    var APP_VERSION = '2.8.1';
     var checking = false;
     var updating = false;
 

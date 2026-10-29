@@ -1156,11 +1156,16 @@ class ConteoManager {
         this._mostrarBannerEnConteo([]);
 
         let primeraRespuesta = true;
-        const enviar = async () => {
+        const enviar = async (reintento = 0) => {
             if (token !== this._ecToken) return;
             const r = await SheetsAPI.enConteo('marcar', this.tipo, codigo, Auth.getUsuarioActual());
             if (token !== this._ecToken) return; // ya se cerró o se abrió otro producto
-            if (!r) return;
+            if (!r) {
+                // El servidor no respondió (arranque lento de Google, señal débil):
+                // reintentar pronto para no perder el aviso ni dejar de figurar.
+                if (reintento < 2) setTimeout(() => enviar(reintento + 1), 3000);
+                return;
+            }
             // La VENTANA solo sale al abrir el producto (si ya alguien lo estaba contando).
             // Si otro usuario llega después, a este solo se le muestra el aviso en el formulario.
             this._procesarEnConteo(r.otros || [], codigo, primeraRespuesta);
@@ -1168,7 +1173,7 @@ class ConteoManager {
         };
 
         enviar();
-        this._ecTimer = setInterval(() => { if (!document.hidden) enviar(); }, 45000);
+        this._ecTimer = setInterval(() => { if (!document.hidden) enviar(); }, 30000);
         this._ecEnviar = enviar;
 
         if (!this._ecEventos) {
@@ -1214,6 +1219,7 @@ class ConteoManager {
 
         document.getElementById('en-conteo-codigo').textContent = codigo;
         document.getElementById('en-conteo-usuarios').textContent = this._nombresEnConteo(otros);
+        document.getElementById('en-conteo-verbo').textContent = otros.length > 1 ? 'están contando' : 'está contando';
         modal.style.display = 'flex';
 
         document.getElementById('btn-en-conteo-continuar').onclick = () => {
@@ -1234,18 +1240,22 @@ class ConteoManager {
             banner.style.display = 'none';
             return;
         }
-        document.getElementById('en-conteo-texto').textContent =
-            `Este código también lo está contando: ${this._nombresEnConteo(otros)}`;
+        const texto = document.getElementById('en-conteo-texto');
+        texto.textContent = '';
+        const nombres = document.createElement('strong');
+        nombres.textContent = this._nombresEnConteo(otros);
+        texto.appendChild(nombres);
+        texto.appendChild(document.createTextNode(
+            otros.length > 1 ? ' también están contando este código' : ' también está contando este código'
+        ));
         banner.style.display = 'flex';
     }
 
+    /** "Juan", "Juan y Luis", "Juan, Luis y Ana" (nombre tal como inició sesión) */
     _nombresEnConteo(otros) {
-        const ahora = Date.now();
-        return otros.map(o => {
-            const min = o.desde ? Math.floor((ahora - o.desde) / 60000) : 0;
-            const hace = min < 1 ? 'hace un momento' : `hace ${min} min`;
-            return `${String(o.usuario || '').toUpperCase()} (${hace})`;
-        }).join(', ');
+        const nombres = otros.map(o => String(o.usuario || '').trim()).filter(Boolean);
+        if (nombres.length <= 1) return nombres[0] || '';
+        return nombres.slice(0, -1).join(', ') + ' y ' + nombres[nombres.length - 1];
     }
 
     // ================================================

@@ -1,0 +1,35 @@
+APP_CONTEO2 V2.8.1
+AVISO "CODIGO EN CONTEO": CORRECCION Y NUEVO DISEÑO
+
+BASE
+Esta version parte directamente de V2.8.0.
+
+POR QUE NO SALIA EL AVISO
+El aviso necesita la funcion doGet del Code.gs nuevo. Si en Apps Script se pega
+el codigo pero NO se publica como "Nueva version" en la MISMA implementacion
+(o se crea una implementacion nueva con otra URL), Google sigue usando el script
+viejo: los conteos se guardan, pero el aviso nunca aparece.
+Comprobacion: abrir la URL /exec en el navegador debe mostrar
+{"success":true,"servicio":"APP_CONTEO2","version":"2.8.1"}
+Tambien: probar con DOS usuarios distintos (el mismo usuario no se avisa a si mismo).
+
+CAMBIOS
+- Nuevo diseño con los colores de la app (sin rojo y sin "hace un momento"):
+  * Ventana: "Codigo en conteo - Juan esta contando P12 en este momento."
+    Botones: Volver / Contar igualmente.
+  * Dentro del formulario: "Juan tambien esta contando este codigo" con un punto
+    animado "en vivo". Varios: "Juan y Luis tambien estan contando este codigo".
+- Si Google tarda en responder la primera vez, la app reintenta sola (2 veces,
+  cada 3 s). La señal se renueva cada 30 s (antes 45 s).
+- Si el servidor no responde como se espera, se deja un aviso en la consola del
+  navegador explicando la causa (para diagnostico).
+- Code.gs 2.8.1: compatible tambien con el motor antiguo de Apps Script y sin
+  caracteres invisibles que pudieran danarse al copiar y pegar.
+
+ARCHIVOS MODIFICADOS
+conteo.html, conteo.css (solo estilos del aviso), conteo.js (solo funciones del
+aviso), sheets-api.js (solo la consulta del aviso), apps-script/Code.gs y version.
+
+NO SE MODIFICO
+Envio de conteos, filtros, lista completa, busqueda, escaner, resumen, reportes,
+login y aviso de actualizacion.

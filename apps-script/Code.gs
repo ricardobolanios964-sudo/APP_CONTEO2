@@ -1,5 +1,5 @@
 /**
- * APP_CONTEO2 - Apps Script (servidor) - V2.8.0
+ * APP_CONTEO2 - Apps Script (servidor) - V2.8.1
  * Farmacia Bolaños
  *
  * QUÉ HACE
@@ -84,7 +84,7 @@ function doGet(e) {
         MODO: p.modo, SUCURSAL: p.sucursal, CODIGO: p.codigo, USUARIO: p.usuario
       }));
     }
-    return json_({ success: true, servicio: 'APP_CONTEO2', version: '2.8.0' });
+    return json_({ success: true, servicio: 'APP_CONTEO2', version: '2.8.1' });
   } catch (err) {
     return json_({ success: false, code: 'ERROR', message: err.message });
   }
@@ -266,13 +266,20 @@ function buscarHoja_(ss, def) {
 }
 
 function normalizar_(texto) {
-  return String(texto === undefined || texto === null ? '' : texto)
-    .replace(/^﻿/, '')
-    .replace(/ /g, ' ')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toUpperCase();
+  let t = String(texto === undefined || texto === null ? '' : texto)
+    .replace(/^\uFEFF/, '')
+    .replace(/\u00A0/g, ' ');
+  // Quitar tildes (compatible también con el motor antiguo de Apps Script)
+  if (typeof t.normalize === 'function') {
+    t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  } else {
+    t = t.replace(/[\u00C1\u00C0\u00C4\u00C2\u00E1\u00E0\u00E4\u00E2]/g, 'A')
+         .replace(/[\u00C9\u00C8\u00CB\u00CA\u00E9\u00E8\u00EB\u00EA]/g, 'E')
+         .replace(/[\u00CD\u00CC\u00CF\u00CE\u00ED\u00EC\u00EF\u00EE]/g, 'I')
+         .replace(/[\u00D3\u00D2\u00D6\u00D4\u00F3\u00F2\u00F6\u00F4]/g, 'O')
+         .replace(/[\u00DA\u00D9\u00DC\u00DB\u00FA\u00F9\u00FC\u00FB]/g, 'U');
+  }
+  return t.replace(/\s+/g, ' ').trim().toUpperCase();
 }
 
 function formatear_(columna, valor) {

@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/icons/favicon-32.png?v=2.8.0">
-    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/icons/favicon-16.png?v=2.8.0">
-    <link rel="apple-touch-icon" sizes="180x180" href="assets/img/icons/apple-touch-icon.png?v=2.8.0">
-    <link rel="manifest" href="manifest.json?v=2.8.0">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/icons/favicon-32.png?v=2.8.1">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/icons/favicon-16.png?v=2.8.1">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/img/icons/apple-touch-icon.png?v=2.8.1">
+    <link rel="manifest" href="manifest.json?v=2.8.1">
     <meta name="theme-color" content="#0D7377">
     <title>Conteo - Farmacia Bolaños</title>
-    <link rel="stylesheet" href="assets/css/main.css?v=2.8.0">
-    <link rel="stylesheet" href="assets/css/conteo.css?v=2.8.0">
-    <link rel="stylesheet" href="assets/css/menu.css?v=2.8.0">
+    <link rel="stylesheet" href="assets/css/main.css?v=2.8.1">
+    <link rel="stylesheet" href="assets/css/conteo.css?v=2.8.1">
+    <link rel="stylesheet" href="assets/css/menu.css?v=2.8.1">
 </head>
 <body>
     
@@ -177,8 +177,8 @@
                             </div>
 
                             <!-- AVISO: otro usuario tiene abierto este mismo código (no bloquea) -->
-                            <div class="ya-contado-banner en-conteo-banner" id="en-conteo-banner" style="display:none;">
-                                <span class="ya-contado-icon">👥</span>
+                            <div class="en-conteo-banner" id="en-conteo-banner" style="display:none;">
+                                <span class="en-conteo-punto" aria-hidden="true"></span>
                                 <span id="en-conteo-texto"></span>
                             </div>
                             
@@ -319,13 +319,15 @@
     <!-- MODAL: ESTE CÓDIGO ESTÁ SIENDO CONTADO POR OTRO USUARIO -->
     <div class="modal" id="modal-en-conteo" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="en-conteo-titulo">
         <div class="modal-content modal-en-conteo">
-            <div class="en-conteo-icono" aria-hidden="true">👥</div>
-            <h3 id="en-conteo-titulo">Este código está siendo contado</h3>
+            <div class="en-conteo-icono" aria-hidden="true">👤</div>
+            <h3 id="en-conteo-titulo">Código en conteo</h3>
             <p class="en-conteo-detalle">
-                <strong id="en-conteo-codigo"></strong> está siendo contado por:
+                <span class="en-conteo-usuarios" id="en-conteo-usuarios"></span>
+                <span id="en-conteo-verbo">está contando</span>
+                <span class="en-conteo-codigo" id="en-conteo-codigo"></span>
+                en este momento.
             </p>
-            <p class="en-conteo-usuarios" id="en-conteo-usuarios"></p>
-            <p class="en-conteo-nota">Si este producto también está en otra área, puedes contarlo igualmente.</p>
+            <p class="en-conteo-nota">¿Lo tienes en otra área? Puedes contarlo igualmente.</p>
             <div class="modal-actions">
                 <button type="button" class="btn-secondary" id="btn-en-conteo-volver">Volver</button>
                 <button type="button" class="btn-primary" id="btn-en-conteo-continuar">Contar igualmente</button>
@@ -373,13 +375,13 @@
     </div>
     
     <!-- SCRIPTS -->
-    <script src="assets/js/config.js?v=2.8.0"></script>
-    <script src="assets/js/sheets-api.js?v=2.8.0"></script>
-    <script src="assets/js/auth.js?v=2.8.0"></script>
-    <script src="assets/js/vendor/quagga.min.js?v=2.8.0"></script>
-    <script src="assets/js/conteo.js?v=2.8.0"></script>
+    <script src="assets/js/config.js?v=2.8.1"></script>
+    <script src="assets/js/sheets-api.js?v=2.8.1"></script>
+    <script src="assets/js/auth.js?v=2.8.1"></script>
+    <script src="assets/js/vendor/quagga.min.js?v=2.8.1"></script>
+    <script src="assets/js/conteo.js?v=2.8.1"></script>
     
-    <script src="assets/js/pwa-update.js?v=2.8.0"></script>
+    <script src="assets/js/pwa-update.js?v=2.8.1"></script>
     <!-- MODAL DE CIERRE DE SESIÓN -->
     <div class="modal logout-modal" id="modal-logout" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="logout-title">
         <div class="modal-content logout-modal-content">
@@ -395,6 +397,6 @@
         </div>
     </div>
 
-    <script src="assets/js/logout.js?v=2.8.0"></script>
+    <script src="assets/js/logout.js?v=2.8.1"></script>
 </body>
 </html>

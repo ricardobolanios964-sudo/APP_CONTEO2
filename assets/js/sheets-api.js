@@ -758,7 +758,7 @@ const SheetsAPI = {
         const url = `${CONFIG.WEBAPP_URL}?${params.toString()}`;
 
         const control = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const timer = control ? setTimeout(() => control.abort(), opciones.timeoutMs || 12000) : null;
+        const timer = control ? setTimeout(() => control.abort(), opciones.timeoutMs || 15000) : null;
 
         try {
             const response = await fetch(url, {
@@ -767,9 +767,21 @@ const SheetsAPI = {
                 keepalive: !!opciones.keepalive, // permite "liberar" aunque se cierre la página
                 signal: control ? control.signal : undefined,
             });
-            const data = JSON.parse(await response.text());
-            return data && data.success ? data : null;
+            const texto = await response.text();
+            let data = null;
+            try { data = JSON.parse(texto); } catch (e) { /* respuesta no JSON */ }
+
+            if (!data || !data.success || !Array.isArray(data.otros)) {
+                // Casi siempre significa que el Apps Script publicado NO es la versión nueva
+                // (le falta doGet), o que se publicó en otra URL.
+                console.warn('Aviso "siendo contado": el Apps Script no respondió como se esperaba. ' +
+                    'Revisa que publicaste Code.gs 2.8.1 como "Nueva versión" en la MISMA implementación. Respuesta:',
+                    texto.slice(0, 200));
+                return null;
+            }
+            return data;
         } catch (e) {
+            console.warn('Aviso "siendo contado": no se pudo consultar el servidor:', e.message || e);
             return null;
         } finally {
             if (timer) clearTimeout(timer);
