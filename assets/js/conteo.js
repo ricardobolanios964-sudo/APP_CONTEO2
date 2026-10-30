@@ -574,6 +574,10 @@ class ConteoManager {
 
         // Avisar a los demás que este código se está contando (y ver si alguien más lo cuenta)
         this.iniciarEnConteo();
+
+        // Aprovechar para poner al día las marcas CONTADO de la lista
+        // (así el aviso amarillo y la lista siempre coinciden)
+        if (this.refrescarMarcasEnVivo) this.refrescarMarcasEnVivo(true);
     }
     
     async cargarUnidadesMedida() {
@@ -965,7 +969,8 @@ class ConteoManager {
     }
 
     iniciarActualizacionEnVivo() {
-        this._refrescando = false;
+        this._refrescandoMarcas = false;
+        this._refrescandoOlimpo = false;
         this._ultimoRefresco = Date.now();
         this._ultimoRefrescoOlimpo = Date.now(); // la carga inicial acaba de traerlos
 
@@ -979,26 +984,59 @@ class ConteoManager {
             if (!document.hidden) this.refrescarEnVivo(true);
         });
         window.addEventListener('online', () => this.refrescarEnVivo(true));
+
+        // Al tocar o deslizar la pantalla: actualizar las marcas CONTADO al instante
+        // (como máximo una vez cada 5 s; la hoja de conteos es liviana).
+        document.addEventListener('pointerdown', () => {
+            if (!document.hidden && Date.now() - this._ultimoRefresco >= 5000) this.refrescarMarcasEnVivo();
+        }, { passive: true, capture: true });
     }
 
-    async refrescarEnVivo(forzarOlimpo = false) {
-        if (this._refrescando) return;
-        if (Date.now() - this._ultimoRefresco < 3000) return; // evita ráfagas
-        this._refrescando = true;
+    /**
+     * Las marcas CONTADO y la lista de productos se actualizan POR SEPARADO:
+     * antes, si la descarga de la lista (hoja grande) se quedaba colgada por
+     * mala señal, también se trababan las marcas CONTADO hasta recargar la página.
+     */
+    refrescarEnVivo(forzarOlimpo = false) {
+        this.refrescarMarcasEnVivo();
+
+        const msOlimpo = (CONFIG.LIVE_INTERVAL_OLIMPO || 60) * 1000;
+        if (forzarOlimpo || Date.now() - this._ultimoRefrescoOlimpo >= msOlimpo) {
+            this.refrescarOlimpoEnVivo();
+        }
+    }
+
+    async refrescarMarcasEnVivo(forzar = false) {
+        // Si una actualización anterior quedó colgada más de 25 s, no se espera más por ella
+        if (this._refrescandoMarcas && Date.now() - this._inicioMarcas < 25000) return;
+        if (!forzar && Date.now() - this._ultimoRefresco < 2500) return; // evita ráfagas
+        this._refrescandoMarcas = true;
+        this._inicioMarcas = Date.now();
         this._ultimoRefresco = Date.now();
+        const turno = (this._turnoMarcas = (this._turnoMarcas || 0) + 1);
 
         try {
-            await this.refrescarConteosEnVivo();
-
-            const msOlimpo = (CONFIG.LIVE_INTERVAL_OLIMPO || 60) * 1000;
-            if (forzarOlimpo || Date.now() - this._ultimoRefrescoOlimpo >= msOlimpo) {
-                await this.refrescarProductosEnVivo();
-            }
+            await this.refrescarConteosEnVivo(turno);
         } catch (error) {
             // Sin internet o Google no respondió: se conserva lo que ya se ve.
-            console.warn('Actualización en vivo omitida:', error.message || error);
+            console.warn('Actualización de marcas omitida:', error.message || error);
         } finally {
-            this._refrescando = false;
+            if (turno === this._turnoMarcas) this._refrescandoMarcas = false;
+        }
+    }
+
+    async refrescarOlimpoEnVivo() {
+        if (this._refrescandoOlimpo && Date.now() - this._inicioOlimpo < 45000) return;
+        this._refrescandoOlimpo = true;
+        this._inicioOlimpo = Date.now();
+        const turno = (this._turnoOlimpo = (this._turnoOlimpo || 0) + 1);
+
+        try {
+            await this.refrescarProductosEnVivo();
+        } catch (error) {
+            console.warn('Actualización de productos omitida:', error.message || error);
+        } finally {
+            if (turno === this._turnoOlimpo) this._refrescandoOlimpo = false;
         }
     }
 
@@ -1006,8 +1044,10 @@ class ConteoManager {
      * Marcas CONTADO + contador + aviso del formulario, según lo que HAY ahora en la hoja.
      * Si se borra un registro en la hoja, su marca CONTADO desaparece.
      */
-    async refrescarConteosEnVivo() {
+    async refrescarConteosEnVivo(turno = null) {
         const r = await SheetsAPI.getConteoEnVivo(this.gidSucursal);
+        // Una respuesta vieja que llegó tarde no debe pisar datos más nuevos
+        if (turno !== null && turno !== this._turnoMarcas) return;
         const ahora = Date.now();
 
         const nuevo = new Set(r.codigos.keys());

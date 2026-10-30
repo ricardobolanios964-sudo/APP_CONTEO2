@@ -1,0 +1,29 @@
+APP_CONTEO2 V2.8.4
+MARCA "CONTADO" EN VIVO: NO SE QUEDA TRABADA
+
+BASE
+Esta version parte directamente de V2.8.3.
+
+PROBLEMA (reproducido)
+Si un usuario tenia la lista abierta y otro contaba un codigo, a veces la lista
+NO mostraba "CONTADO" (aunque al abrir el producto el aviso amarillo si decia
+"ya fue contado") hasta recargar la pagina.
+Causa: la actualizacion en vivo descargaba primero los conteos y despues la lista
+de productos (hoja grande). Si esa descarga se quedaba colgada por mala señal,
+toda la actualizacion se trababa y ya no volvia a refrescar las marcas.
+
+CORRECCION
+- sheets-api.js: tiempo limite en todas las descargas de hojas (15 s conteos,
+  30 s productos). Ninguna descarga puede quedarse colgada para siempre.
+- conteo.js: las marcas CONTADO y la lista de productos se actualizan por
+  separado; una descarga lenta de productos ya no frena las marcas.
+- Si una respuesta vieja llega tarde, no pisa datos mas nuevos.
+- Las marcas se actualizan: cada 10 s (antes 15), al tocar/deslizar la pantalla
+  (maximo cada 5 s), al volver a la app y al abrir un producto (el aviso amarillo
+  y la lista siempre coinciden).
+- config.js: LIVE_INTERVAL_CONTEOS = 10 (tambien aplica a Resumen).
+
+NO SE MODIFICO
+Envio de conteos, aviso "codigo en conteo", filtros, lista completa, busqueda,
+escaner, resumen (solo refresca cada 10 s), reportes, login, estilos.
+Apps Script sin cambios.

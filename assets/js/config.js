@@ -31,6 +31,6 @@ const CONFIG = {
 
     // Actualización en vivo (segundos). Google Sheets no "empuja" cambios, así que la app
     // consulta la hoja cada cierto tiempo mientras la pantalla está visible.
-    LIVE_INTERVAL_CONTEOS: 15,   // marcas CONTADO, contador y Resumen
+    LIVE_INTERVAL_CONTEOS: 10,   // marcas CONTADO, contador y Resumen
     LIVE_INTERVAL_OLIMPO: 60,    // lista de productos y existencia
 };

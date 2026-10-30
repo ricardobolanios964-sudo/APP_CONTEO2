@@ -78,12 +78,18 @@ const SheetsAPI = {
 
         let ultimoError = null;
 
+        // Tiempo límite por descarga: con señal débil una descarga podía quedarse
+        // colgada para siempre y trabar la actualización en vivo hasta recargar.
+        const limiteMs = esConteo ? 15000 : 30000;
+
         for (const url of urls) {
+            const control = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const limite = control ? setTimeout(() => control.abort(), limiteMs) : null;
             try {
                 // Sin headers personalizados: Cache-Control/Pragma obligan al navegador
                 // a hacer una petición "preflight" que Google rechaza (redirige).
                 // cache:'no-store' y el parámetro cb ya evitan la caché.
-                const response = await fetch(url, { cache: 'no-store' });
+                const response = await fetch(url, { cache: 'no-store', signal: control ? control.signal : undefined });
 
                 if (!response.ok) {
                     ultimoError = new Error(`No se pudo leer la hoja (HTTP ${response.status}).`);
@@ -131,7 +137,11 @@ const SheetsAPI = {
                     }
                 }
             } catch (e) {
-                ultimoError = e;
+                ultimoError = e.name === 'AbortError'
+                    ? new Error('Google tardó demasiado en responder (se reintentará).')
+                    : e;
+            } finally {
+                if (limite) clearTimeout(limite);
             }
         }
 
