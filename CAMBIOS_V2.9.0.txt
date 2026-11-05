@@ -1,0 +1,58 @@
+APP_CONTEO2 V2.9.0
+ENVIOS CON MUCHAS PERSONAS + LECTURA COMPLETA AUNQUE LA HOJA TENGA FILTROS
+
+BASE
+Esta version parte directamente de V2.8.4. Code.gs 2.9.0 parte de tu script
+publicado (2.8.1 = tu script original + mejoras).
+
+*** ORDEN PARA PUBLICAR ***
+1) PRIMERO Code.gs 2.9.0: pegar, guardar, Implementar > Gestionar
+   implementaciones > lapiz de la implementacion ACTUAL > Nueva version.
+   (La URL no cambia.) Comprobar: la URL /exec debe mostrar "version":"2.9.0".
+   Los celulares que aun tengan la app 2.8.4 ya se benefician de la escritura
+   en lote.
+2) DESPUES la app: Commit + Push origin.
+
+PROBLEMA 1 (ayer, 10 personas): "Reintentando 2/3, 3/3" y "No enviado"
+Causa: el servidor escribia UNA fila por turno. Si cada escritura tarda unos
+segundos, con 10 personas la fila de espera crece mas rapido de lo que el
+servidor escribe; el turno solo esperaba 25 s y la app reintentaba a 1-2 s,
+volviendo a la fila detras de los demas. (GitHub tuvo una falla el 4/11 en
+operaciones Git, pero los envios van a Google, no a GitHub. Google Apps Script
+no tuvo fallas reportadas.)
+Solucion:
+- Code.gs: ESCRITURA EN LOTE. Cada envio se anota en una lista de espera y al
+  que le toca el turno escribe TODAS las filas en espera de una sola vez.
+  Cada envio conserva su fila: si la lista se perdiera, la escribe el mismo.
+- Code.gs: todo se prepara fuera del turno; el turno espera hasta 45 s.
+- Code.gs: ?accion=verificar -> "¿ya llego este conteo?" (sin escribir).
+- Code.gs: cada guardado anota sus tiempos en Ejecuciones (diagnostico).
+- App: espera hasta 60 s la respuesta; si se pierde, PREGUNTA si ya llego antes
+  de reenviar; 4 intentos con esperas de 2.5 / 5 / 9 s; muestra "esperando
+  turno" si hay mucha gente.
+Simulacion (escrituras de 5 s): 10 personas -> 0 fallas (antes 2); 20 personas
+-> 0 fallas (antes 21%), sin duplicados.
+
+PROBLEMA 2 (hoy): conte 5 y "Contados" mostraba 3
+Causa: la lectura publica de Google SOLO entrega las filas visibles cuando
+alguien deja un filtro aplicado en la hoja.
+Solucion:
+- Code.gs: ?accion=leer -> entrega la hoja COMPLETA (aunque tenga filtros),
+  como texto, con copia rapida en memoria (conteos 3 s, otras hojas 60 s;
+  se renueva al guardar).
+- App (sheets-api.js): todas las hojas se leen asi (conteos, productos,
+  usuarios, unidades). Si el script no responde, usa sola la lectura publica.
+
+OPTIMIZACION
+- Si la hoja de conteos se leyo hace menos de 4 s, se reutiliza (abrir un
+  producto leia la hoja 2 veces seguidas). Al guardar se renueva al instante.
+- El buscador usa la lista de productos ya descargada (60 s, igual que la
+  renovacion en vivo) en vez de volver a bajarla cada 20 s.
+- Los celulares refrescan cada 10 s +/- 2 s (no todos en el mismo segundo).
+- El aviso "codigo en conteo" reintenta 1 vez (antes 2) para no competir con
+  los envios cuando hay mucha gente.
+
+NO SE MODIFICO
+Formulario, filtros, aviso de codigo en conteo, marcas en vivo, busqueda,
+escaner, resumen, reportes, login, diseño. En Code.gs: guardar (mismas
+columnas), ACTUALIZAR y contraseña dan el mismo resultado que tu script.

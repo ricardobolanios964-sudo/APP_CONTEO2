@@ -60,11 +60,11 @@ Esa es tu app funcionando en internet, gratis, para siempre.
 
 ## 🔄 Control de versiones, caché y actualización obligatoria de la PWA
 
-**Versión actual:** `2.8.4`
+**Versión actual:** `2.9.0`
 
 La aplicación utiliza dos mecanismos complementarios para evitar que un navegador o una PWA instalada conserve una versión antigua:
 
-1. **Versionado de recursos:** CSS y JavaScript llevan `?v=2.8.4`.
+1. **Versionado de recursos:** CSS y JavaScript llevan `?v=2.9.0`.
 2. **Service Worker:** la PWA tiene `service-worker.js` con una caché identificada por versión. Al publicarse una versión nueva, el navegador detecta el nuevo Service Worker, elimina la caché anterior y toma control de la aplicación.
 
 ### Aviso de actualización
@@ -109,6 +109,7 @@ El servidor está en `apps-script/Code.gs`. **Siempre publica primero el Apps Sc
 - "¡Enviado con éxito!" solo aparece cuando la fila ya está en la hoja. Si falla, sale **"No enviado"** y los datos quedan en el formulario.
 - Los reintentos usan el mismo `ID_REGISTRO`, así que nunca se duplica una fila.
 - Si dos personas abren el mismo código, la segunda ve **"Este código está siendo contado por: …"** y puede volver o contar igualmente.
+- Desde 2.9.0 el servidor escribe **en lote** (varios conteos en una sola operación) y la app lee las hojas **completas aunque tengan filtros** aplicados (ver `CAMBIOS_V2.9.0.txt`).
 
 ## 🔧 Si algo no funciona
 

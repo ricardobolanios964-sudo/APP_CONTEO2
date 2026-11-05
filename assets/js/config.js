@@ -18,13 +18,13 @@ const CONFIG = {
     GID_INVENTARIO_BC: '554330490',
     // Unidades de medida por producto (hoja UNIDADES_MEDIDA)
     GID_UNIDADES_MEDIDA: '1635530234',
-    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbxYBvxifh2Q1JD5m4lSyUlP1N478ZH62pEEID9obeToWwXe0nPN7qOwDTyRnbgu0kGs/exec',
+    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbzvRio8eWiZDgSK4izckpc-ZuUq1OQFVT2B3MMCl4mSstaI732_aAmSbki4DLGDbXmu/exec',
     
     // Rutas relativas (GitHub Pages sirve todo desde la raíz del repo)
     BASE_URL: '.',
     
     // Caché en localStorage, en segundos (igual que hacía PHP con archivos)
-    CACHE_TTL_OLIMPO: 20,
+    CACHE_TTL_OLIMPO: 60,        // igual que la renovación en vivo de la lista (antes 20: descargaba de más)
     CACHE_TTL_USUARIOS: 30,
     CACHE_TTL_CONTEOS: 30,
     CACHE_TTL_UNIDADES: 300,
@@ -33,4 +33,9 @@ const CONFIG = {
     // consulta la hoja cada cierto tiempo mientras la pantalla está visible.
     LIVE_INTERVAL_CONTEOS: 10,   // marcas CONTADO, contador y Resumen
     LIVE_INTERVAL_OLIMPO: 60,    // lista de productos y existencia
+
+    // Leer las hojas a través del Apps Script (Code.gs 2.9.0): trae TODAS las
+    // filas aunque alguien deje un filtro aplicado en la hoja. Si el script no
+    // responde, la app usa sola la lectura pública de siempre.
+    LEER_VIA_SCRIPT: true,
 };

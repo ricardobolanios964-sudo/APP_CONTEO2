@@ -21,7 +21,17 @@ const SheetsAPI = {
         // Si ya hay una descarga de esta hoja de conteos en curso, se comparte.
         this._enVuelo = this._enVuelo || {};
         if (this._enVuelo[gid]) return this._enVuelo[gid];
-        const promesa = this._fetchCSVReal(gid, ttlSeconds).finally(() => { delete this._enVuelo[gid]; });
+
+        // Si se leyó hace menos de 4 s, se reutiliza esa lectura (antes, abrir un
+        // producto o volver a la lista leía la hoja 2 veces seguidas). Al guardar
+        // un conteo esta copia se borra, así las marcas nunca se atrasan.
+        this._recienLeido = this._recienLeido || {};
+        const reciente = this._recienLeido[gid];
+        if (reciente && Date.now() - reciente.ts < 4000) return reciente.data;
+
+        const promesa = this._fetchCSVReal(gid, ttlSeconds)
+            .then(data => { this._recienLeido[gid] = { ts: Date.now(), data }; return data; })
+            .finally(() => { delete this._enVuelo[gid]; });
         this._enVuelo[gid] = promesa;
         return promesa;
     },
@@ -76,6 +86,15 @@ const SheetsAPI = {
             `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/export?format=csv&gid=${gid}&cb=${Date.now()}`
         );
 
+        // 1) Lectura COMPLETA vía Apps Script: incluye las filas que un filtro de la
+        //    hoja deja ocultas (la exportación pública de Google NO las entrega).
+        const filasScript = await this._leerViaScript(gid, nombreHoja, esConteo ? 12000 : 25000);
+        if (filasScript) {
+            const aceptadas = this._aceptarFilas(filasScript, gid, esConteo, cacheKey);
+            if (aceptadas) return aceptadas;
+        }
+
+        // 2) Respaldo: lectura pública de siempre
         let ultimoError = null;
 
         // Tiempo límite por descarga: con señal débil una descarga podía quedarse
@@ -187,6 +206,7 @@ const SheetsAPI = {
 
     _limpiarCache(gid) {
         if (this._enVuelo) delete this._enVuelo[gid];
+        if (this._recienLeido) delete this._recienLeido[gid];
         if (this._memCache) delete this._memCache[gid];
         localStorage.removeItem(`bolanos_csv_${gid}`);
     },
@@ -647,7 +667,7 @@ const SheetsAPI = {
      *  - idExistente: para reintentar manualmente el mismo envío.
      *  - alReintentar(n, total): aviso opcional para la pantalla.
      */
-    async guardarConteo(datos, usuario, tipo, idExistente = null, alReintentar = null) {
+    async guardarConteo(datos, usuario, tipo, idExistente = null, alReintentar = null, alEsperarTurno = null) {
         const idRegistro = idExistente || this._generarIdRegistro(usuario, tipo);
         const ahora = new Date();
         const fecha = `${String(ahora.getDate()).padStart(2, '0')}/${String(ahora.getMonth() + 1).padStart(2, '0')}/${ahora.getFullYear()}`;
@@ -676,41 +696,65 @@ const SheetsAPI = {
 
         // Errores de configuración: reintentar no sirve de nada
         const NO_REINTENTAR = ['SUCURSAL', 'SIN_ID', 'SIN_CODIGO', 'HOJA', 'ENCABEZADOS'];
-        const INTENTOS = 3;
+        const INTENTOS = 4;
+        // Esperas entre intentos más largas (antes 1 y 2 s): con muchos celulares
+        // a la vez, reintentar enseguida solo alargaba la fila del servidor.
+        const ESPERAS = [0, 2500, 5000, 9000];
         let ultimoError = '';
+
+        const exito = (data) => {
+            this._limpiarCache(gidSucursal);
+            return {
+                success: true,
+                id: idRegistro,
+                fecha, hora_inicio: horaInicio, hora_fin: horaFin,
+                mensaje: (data && data.message) || 'Conteo registrado',
+            };
+        };
 
         for (let intento = 1; intento <= INTENTOS; intento++) {
             if (intento > 1) {
                 if (alReintentar) { try { alReintentar(intento, INTENTOS); } catch (e) {} }
                 // Espera creciente + un poco al azar, para que 10 celulares que
                 // fallaron a la vez no vuelvan a chocar en el mismo instante.
-                await this._esperar(1000 * (intento - 1) + Math.floor(Math.random() * 700));
+                await this._esperar(ESPERAS[intento - 1] + Math.floor(Math.random() * 2000));
             }
 
-            try {
-                const data = await this._postJSON(payload, 30000);
+            // Si el servidor tarda, avisar en pantalla que se está esperando turno
+            const avisoTurno = alEsperarTurno ? setTimeout(() => { try { alEsperarTurno(intento, INTENTOS); } catch (e) {} }, 6000) : null;
+            let respuestaPerdida = false;
 
-                if (data && data.success !== false) {
-                    this._limpiarCache(gidSucursal);
-                    return {
-                        success: true,
-                        id: idRegistro,
-                        fecha, hora_inicio: horaInicio, hora_fin: horaFin,
-                        mensaje: data.message || 'Conteo registrado',
-                    };
-                }
+            try {
+                // INTENTO le dice al servidor si es el primer envío (más rápido) o un reintento
+                const data = await this._postJSON({ ...payload, INTENTO: intento }, 60000);
+
+                if (data && data.success !== false) return exito(data);
 
                 ultimoError = (data && data.message) || 'El servidor no confirmó el guardado.';
                 if (data && NO_REINTENTAR.includes(data.code)) break;
             } catch (e) {
+                // Tiempo agotado, señal cortada o respuesta ilegible: el conteo PUDO haber llegado
+                respuestaPerdida = true;
                 ultimoError = e.name === 'AbortError'
                     ? 'El servidor tardó demasiado en responder.'
                     : (navigator.onLine === false ? 'Sin conexión a internet.' : 'No se pudo conectar con el servidor.');
                 console.warn(`Envío de conteo, intento ${intento}/${INTENTOS} falló:`, e.message || e);
+            } finally {
+                if (avisoTurno) clearTimeout(avisoTurno);
+            }
+
+            // Antes de reenviar a ciegas: preguntar si ya llegó
+            if (respuestaPerdida && navigator.onLine !== false && await this._conteoLlego(idRegistro, tipo)) {
+                return exito(null);
             }
 
             // Sin internet: no tiene sentido seguir esperando
             if (navigator.onLine === false) break;
+        }
+
+        // Última comprobación antes de decir "No enviado"
+        if (navigator.onLine !== false && await this._conteoLlego(idRegistro, tipo)) {
+            return exito(null);
         }
 
         return {
@@ -746,6 +790,102 @@ const SheetsAPI = {
 
     _esperar(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
+    },
+
+    /**
+     * ¿Este conteo ya está en la hoja? (consulta rápida, no escribe nada).
+     * Se usa cuando se perdió la respuesta, para no reenviar a ciegas.
+     * Con un Apps Script anterior (sin esta función) devuelve false.
+     */
+    async _conteoLlego(idRegistro, tipo) {
+        if (!CONFIG.WEBAPP_URL || !idRegistro) return false;
+        const params = new URLSearchParams({ accion: 'verificar', id: idRegistro, sucursal: tipo, t: String(Date.now()) });
+        const control = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const limite = control ? setTimeout(() => control.abort(), 12000) : null;
+        try {
+            const r = await fetch(`${CONFIG.WEBAPP_URL}?${params.toString()}`, {
+                method: 'GET', cache: 'no-store', signal: control ? control.signal : undefined,
+            });
+            const data = JSON.parse(await r.text());
+            return !!(data && data.success && data.encontrado === true);
+        } catch (e) {
+            return false;
+        } finally {
+            if (limite) clearTimeout(limite);
+        }
+    },
+
+    /**
+     * Lee una hoja COMPLETA a través del Apps Script (?accion=leer).
+     * A diferencia de la exportación pública de Google, trae TODAS las filas
+     * aunque alguien haya dejado un filtro aplicado en la hoja.
+     * Devuelve las filas (como texto) o null si no se pudo (la app usa entonces
+     * la lectura de siempre).
+     */
+    async _leerViaScript(gid, nombreHoja, timeoutMs) {
+        if (!CONFIG.WEBAPP_URL || CONFIG.LEER_VIA_SCRIPT === false) return null;
+        if (this._lecturaScriptPausadaHasta && Date.now() < this._lecturaScriptPausadaHasta) return null;
+
+        const params = new URLSearchParams({ accion: 'leer', t: String(Date.now()) });
+        if (nombreHoja) params.set('hoja', nombreHoja);
+        else params.set('gid', String(gid));
+
+        const control = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const limite = control ? setTimeout(() => control.abort(), timeoutMs) : null;
+        try {
+            const r = await fetch(`${CONFIG.WEBAPP_URL}?${params.toString()}`, {
+                method: 'GET', cache: 'no-store', signal: control ? control.signal : undefined,
+            });
+            const texto = await r.text();
+            let data = null;
+            try { data = JSON.parse(texto); } catch (e) { /* respuesta no JSON */ }
+
+            if (data && data.success && Array.isArray(data.filas)) {
+                this._fallasLecturaScript = 0;
+                return data.filas.map(f => (Array.isArray(f) ? f : []).map(v => (v === null || v === undefined ? '' : String(v))));
+            }
+            if (data && data.status === 'OK' && !('filas' in data)) {
+                // El Apps Script publicado todavía no tiene esta función: no insistir por 10 min
+                this._lecturaScriptPausadaHasta = Date.now() + 10 * 60 * 1000;
+                console.warn('Lectura completa no disponible: publica Code.gs 2.9.0. Se usa la lectura pública (no incluye filas ocultas por filtros).');
+                return null;
+            }
+        } catch (e) {
+            /* sin respuesta a tiempo: usar la lectura de siempre */
+        } finally {
+            if (limite) clearTimeout(limite);
+        }
+        // Si falla varias veces seguidas, usar la lectura de siempre durante 1 min
+        this._fallasLecturaScript = (this._fallasLecturaScript || 0) + 1;
+        if (this._fallasLecturaScript >= 2) {
+            this._lecturaScriptPausadaHasta = Date.now() + 60 * 1000;
+            this._fallasLecturaScript = 0;
+        }
+        return null;
+    },
+
+    /** Valida y guarda en caché las filas leídas (misma regla para ambas lecturas). */
+    _aceptarFilas(data, gid, esConteo, cacheKey) {
+        if (!Array.isArray(data) || data.length === 0) return null;
+        if (esConteo) {
+            const headers = data[0].map(h =>
+                String(h || '')
+                    .replace(/^\uFEFF/, '')
+                    .replace(/\u00A0/g, ' ')
+                    .trim()
+                    .toUpperCase()
+            );
+            const tieneCodigo = headers.includes('CODIGO');
+            const tieneId = headers.includes('ID_REGISTRO') || headers.includes('ID REGISTRO');
+            // Para conteos no guardamos una copia vieja.
+            return (tieneCodigo || tieneId) ? data : null;
+        }
+        this._memCache = this._memCache || {};
+        this._memCache[gid] = { timestamp: Date.now(), data };
+        try {
+            localStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data }));
+        } catch (e) {}
+        return data;
     },
 
     // ================================================

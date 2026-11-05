@@ -745,7 +745,12 @@ class ConteoManager {
 
             const resultado = await SheetsAPI.guardarConteo(
                 datos, Auth.getUsuarioActual(), this.tipo, idReintento,
-                (n, total) => { if (subtituloEnvio) subtituloEnvio.textContent = `Reintentando (${n} de ${total})...`; }
+                (n, total) => { if (subtituloEnvio) subtituloEnvio.textContent = `Reintentando (${n} de ${total})...`; },
+                (n, total) => {
+                    if (subtituloEnvio) subtituloEnvio.textContent = n > 1
+                        ? `Reintentando (${n} de ${total}) · esperando turno...`
+                        : 'Varias personas enviando · esperando turno...';
+                }
             );
 
             // La animación dura exactamente lo que tarda el servidor en confirmar
@@ -974,10 +979,17 @@ class ConteoManager {
         this._ultimoRefresco = Date.now();
         this._ultimoRefrescoOlimpo = Date.now(); // la carga inicial acaba de traerlos
 
+        // Cada 10 s ± 2 s al azar: así los celulares no consultan todos en el
+        // mismo segundo (eso hacía picos de carga en el servidor).
         const ms = (CONFIG.LIVE_INTERVAL_CONTEOS || 15) * 1000;
-        setInterval(() => {
-            if (!document.hidden) this.refrescarEnVivo(false);
-        }, ms);
+        const siguiente = () => {
+            const variacion = Math.round(ms * 0.2 * (Math.random() * 2 - 1));
+            setTimeout(() => {
+                if (!document.hidden) this.refrescarEnVivo(false);
+                siguiente();
+            }, ms + variacion);
+        };
+        siguiente();
 
         // Al volver a la app (cambio de pestaña, PWA en segundo plano, pantalla bloqueada)
         document.addEventListener('visibilitychange', () => {
@@ -1201,9 +1213,10 @@ class ConteoManager {
             const r = await SheetsAPI.enConteo('marcar', this.tipo, codigo, Auth.getUsuarioActual());
             if (token !== this._ecToken) return; // ya se cerró o se abrió otro producto
             if (!r) {
-                // El servidor no respondió (arranque lento de Google, señal débil):
-                // reintentar pronto para no perder el aviso ni dejar de figurar.
-                if (reintento < 2) setTimeout(() => enviar(reintento + 1), 3000);
+                // El servidor no respondió (arranque lento de Google, señal débil o
+                // servidor muy ocupado): un solo reintento a los 5 s, para no
+                // competir con los envíos de conteos cuando hay mucha gente.
+                if (reintento < 1) setTimeout(() => enviar(reintento + 1), 5000);
                 return;
             }
             // La VENTANA solo sale al abrir el producto (si ya alguien lo estaba contando).
