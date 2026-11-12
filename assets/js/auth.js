@@ -49,6 +49,16 @@ const Auth = {
             return { success: false, error: 'Usuario o contraseña incorrectos' };
         }
 
+        // V2.9.1: si el usuario no aparece, puede ser porque alguien dejó un filtro
+        // en la hoja USUARIOS (la lectura pública no trae las filas ocultas).
+        // Solo en ese caso se lee la hoja completa a través del Apps Script.
+        if (!usuarios || !usuarios.some(u => u.usuario === usuario)) {
+            try {
+                const completos = await SheetsAPI.getUsuarios({ completo: true });
+                if (completos && completos.length) usuarios = completos;
+            } catch (e) { /* se queda con la lectura normal */ }
+        }
+
         if (!usuarios || usuarios.length === 0) {
             return { success: false, error: 'Usuario o contraseña incorrectos' };
         }

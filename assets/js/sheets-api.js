@@ -14,36 +14,40 @@ const SheetsAPI = {
      * Descarga y parsea el CSV de una hoja (por GID). Usa caché en
      * localStorage con expiración, igual que hacía PHP con archivos.
      */
-    async _fetchCSV(gid, ttlSeconds) {
+    async _fetchCSV(gid, ttlSeconds, opciones = {}) {
         const esConteoGid = gid === CONFIG.GID_INVENTARIO_MER || gid === CONFIG.GID_INVENTARIO_FAR || gid === CONFIG.GID_INVENTARIO_BC;
-        if (!esConteoGid) return this._fetchCSVReal(gid, ttlSeconds);
+        if (!esConteoGid) return this._fetchCSVReal(gid, ttlSeconds, opciones);
+
+        // La lectura completa (Reportes) y la liviana (marcas) se guardan aparte
+        const clave = opciones.completo ? `${gid}:completo` : String(gid);
 
         // Si ya hay una descarga de esta hoja de conteos en curso, se comparte.
         this._enVuelo = this._enVuelo || {};
-        if (this._enVuelo[gid]) return this._enVuelo[gid];
+        if (this._enVuelo[clave]) return this._enVuelo[clave];
 
         // Si se leyó hace menos de 4 s, se reutiliza esa lectura (antes, abrir un
         // producto o volver a la lista leía la hoja 2 veces seguidas). Al guardar
         // un conteo esta copia se borra, así las marcas nunca se atrasan.
         this._recienLeido = this._recienLeido || {};
-        const reciente = this._recienLeido[gid];
-        if (reciente && Date.now() - reciente.ts < 4000) return reciente.data;
+        const reciente = this._recienLeido[clave];
+        if (!opciones.completo && reciente && Date.now() - reciente.ts < 4000) return reciente.data;
 
-        const promesa = this._fetchCSVReal(gid, ttlSeconds)
-            .then(data => { this._recienLeido[gid] = { ts: Date.now(), data }; return data; })
-            .finally(() => { delete this._enVuelo[gid]; });
-        this._enVuelo[gid] = promesa;
+        const promesa = this._fetchCSVReal(gid, ttlSeconds, opciones)
+            .then(data => { this._recienLeido[clave] = { ts: Date.now(), data }; return data; })
+            .finally(() => { delete this._enVuelo[clave]; });
+        this._enVuelo[clave] = promesa;
         return promesa;
     },
 
-    async _fetchCSVReal(gid, ttlSeconds) {
+    async _fetchCSVReal(gid, ttlSeconds, opciones = {}) {
         const cacheKey = `bolanos_csv_${gid}`;
 
         // Inventarios de conteo: Google Sheets es la fuente de verdad.
         // No reutilizamos datos viejos del navegador para esta lectura.
         const esConteo = gid === CONFIG.GID_INVENTARIO_MER || gid === CONFIG.GID_INVENTARIO_FAR || gid === CONFIG.GID_INVENTARIO_BC;
 
-        if (!esConteo) {
+        // opciones.completo = lectura completa forzada (no usar la copia guardada)
+        if (!esConteo && !opciones.completo) {
             // 1) Copia en memoria: evita volver a convertir todo el inventario
             //    desde localStorage en cada búsqueda (esto causaba lentitud).
             this._memCache = this._memCache || {};
@@ -86,9 +90,19 @@ const SheetsAPI = {
             `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/export?format=csv&gid=${gid}&cb=${Date.now()}`
         );
 
-        // 1) Lectura COMPLETA vía Apps Script: incluye las filas que un filtro de la
-        //    hoja deja ocultas (la exportación pública de Google NO las entrega).
-        const filasScript = await this._leerViaScript(gid, nombreHoja, esConteo ? 12000 : 25000);
+        // 1) Lectura a través del Apps Script (ve TODAS las filas aunque la hoja
+        //    tenga un filtro; la exportación pública de Google NO las entrega).
+        //    V2.9.1: solo cuando hace falta, para no dejar la hoja ocupada:
+        //    - Conteos (marcas, aviso, contador, Resumen): lista LIVIANA (ID + CÓDIGO)
+        //      que el servidor tiene en memoria. No lee la hoja en cada consulta.
+        //    - Reportes, o una hoja que el servidor avisó que tiene filtro: completa.
+        //    - Productos, usuarios y unidades sin filtro: lectura pública (como antes).
+        let filasScript = null;
+        if (esConteo && !opciones.completo) {
+            filasScript = await this._leerMarcasScript(nombreHoja);
+        } else if (opciones.completo || this._hojaConFiltro(gid)) {
+            filasScript = await this._leerViaScript(gid, nombreHoja, esConteo ? 20000 : 30000);
+        }
         if (filasScript) {
             const aceptadas = this._aceptarFilas(filasScript, gid, esConteo, cacheKey);
             if (aceptadas) return aceptadas;
@@ -205,8 +219,8 @@ const SheetsAPI = {
     },
 
     _limpiarCache(gid) {
-        if (this._enVuelo) delete this._enVuelo[gid];
-        if (this._recienLeido) delete this._recienLeido[gid];
+        if (this._enVuelo) { delete this._enVuelo[gid]; delete this._enVuelo[`${gid}:completo`]; }
+        if (this._recienLeido) { delete this._recienLeido[gid]; delete this._recienLeido[`${gid}:completo`]; }
         if (this._memCache) delete this._memCache[gid];
         localStorage.removeItem(`bolanos_csv_${gid}`);
     },
@@ -215,8 +229,8 @@ const SheetsAPI = {
     // USUARIOS
     // ================================================
 
-    async getUsuarios() {
-        const filas = await this._fetchCSV(CONFIG.GID_USUARIOS, CONFIG.CACHE_TTL_USUARIOS);
+    async getUsuarios(opciones = {}) {
+        const filas = await this._fetchCSV(CONFIG.GID_USUARIOS, CONFIG.CACHE_TTL_USUARIOS, opciones);
         const datos = filas.slice(1); // quitar encabezados
 
         return datos
@@ -593,7 +607,7 @@ const SheetsAPI = {
         if (!gid) return { success: false, mensaje: 'Falta configurar el GID de esta hoja', filas: [] };
 
         try {
-            const filas = await this._fetchCSV(gid, 0); // sin caché, siempre fresco
+            const filas = await this._fetchCSV(gid, 0, { completo: true }); // hoja completa, siempre fresca
             const headers = filas[0].map(h => h.trim());
             const datos = filas.slice(1);
 
@@ -862,6 +876,67 @@ const SheetsAPI = {
             this._fallasLecturaScript = 0;
         }
         return null;
+    },
+
+    /**
+     * V2.9.1 - Marcas "CONTADO" livianas (?accion=marcas): ID + CÓDIGO de TODAS
+     * las filas de la hoja de conteo (aunque tenga filtro), servidas desde la
+     * memoria del Apps Script: no deja la hoja ocupada. También trae qué hojas
+     * tienen filtro aplicado. Devuelve las filas o null (se usa la lectura pública).
+     */
+    async _leerMarcasScript(nombreHoja) {
+        if (!CONFIG.WEBAPP_URL || CONFIG.LEER_VIA_SCRIPT === false || !nombreHoja) return null;
+        if (this._marcasPausadaHasta && Date.now() < this._marcasPausadaHasta) return null;
+
+        const params = new URLSearchParams({ accion: 'marcas', hoja: nombreHoja, t: String(Date.now()) });
+        const control = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const limite = control ? setTimeout(() => control.abort(), 12000) : null;
+        try {
+            const r = await fetch(`${CONFIG.WEBAPP_URL}?${params.toString()}`, {
+                method: 'GET', cache: 'no-store', signal: control ? control.signal : undefined,
+            });
+            const texto = await r.text();
+            let data = null;
+            try { data = JSON.parse(texto); } catch (e) { /* respuesta no JSON */ }
+
+            if (data && data.success && Array.isArray(data.filas)) {
+                this._fallasMarcas = 0;
+                if (data.filtros && typeof data.filtros === 'object') this._guardarFiltros(data.filtros);
+                return data.filas.map(f => (Array.isArray(f) ? f : []).map(v => (v === null || v === undefined ? '' : String(v))));
+            }
+            if (data && data.status === 'OK' && !('filas' in data)) {
+                // El Apps Script publicado todavía no tiene esta función: no insistir por 10 min
+                this._marcasPausadaHasta = Date.now() + 10 * 60 * 1000;
+                console.warn('Marcas livianas no disponibles: publica Code.gs 2.9.1. Se usa la lectura pública.');
+                return null;
+            }
+        } catch (e) {
+            /* sin respuesta a tiempo: usar la lectura pública */
+        } finally {
+            if (limite) clearTimeout(limite);
+        }
+        // Si falla varias veces seguidas, usar la lectura pública durante 1 min
+        this._fallasMarcas = (this._fallasMarcas || 0) + 1;
+        if (this._fallasMarcas >= 2) {
+            this._marcasPausadaHasta = Date.now() + 60 * 1000;
+            this._fallasMarcas = 0;
+        }
+        return null;
+    },
+
+    /** Qué hojas tienen un filtro aplicado (lo avisa el servidor; se recuerda 10 min). */
+    _guardarFiltros(filtros) {
+        this._filtros = { ts: Date.now(), mapa: filtros };
+        try { localStorage.setItem('app_conteo2_filtros', JSON.stringify(this._filtros)); } catch (e) {}
+    },
+
+    _hojaConFiltro(gid) {
+        if (!this._filtros) {
+            try { this._filtros = JSON.parse(localStorage.getItem('app_conteo2_filtros') || 'null'); } catch (e) { this._filtros = null; }
+        }
+        const f = this._filtros;
+        if (!f || !f.mapa || Date.now() - f.ts > 10 * 60 * 1000) return false;
+        return f.mapa[String(gid)] === true;
     },
 
     /** Valida y guarda en caché las filas leídas (misma regla para ambas lecturas). */

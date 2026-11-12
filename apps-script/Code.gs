@@ -24,17 +24,27 @@
  * 3) "ESTE CÓDIGO ESTÁ SIENDO CONTADO POR..." (doGet ?accion=en_conteo)
  *    Se guarda en la memoria del script, NUNCA en las hojas.
  *
- * 4) NUEVO (V2.9.0) - LECTURA COMPLETA DE HOJAS (doGet ?accion=leer)
+ * 4) LECTURA COMPLETA DE HOJAS (doGet ?accion=leer)
  *    La exportación pública de Google solo entrega las filas VISIBLES cuando
  *    alguien deja un filtro aplicado en la hoja. Esta lectura entrega TODAS
  *    las filas, haya o no filtro. También: ?accion=verificar (¿ya llegó este ID?).
+ *
+ * 5) NUEVO (V2.9.1) - MARCAS "CONTADO" LIVIANAS (doGet ?accion=marcas)
+ *    Leer la hoja completa cada pocos segundos dejaba la hoja ocupada y los
+ *    guardados tenían que esperar (aunque contara una sola persona).
+ *    Ahora la lista de conteos (ID + CÓDIGO) vive en la memoria del script:
+ *    se actualiza al instante en cada guardado y se relee de la hoja (solo esas
+ *    2 columnas, y aunque haya filtros) como máximo cada 15 s, sin importar
+ *    cuántos celulares consulten. También avisa qué hojas tienen filtro.
  *
  * IMPORTANTE: la hoja USUARIOS debe tener columnas "USUARIO" y
  * "CONTRASEÑA" (con eñe) en la primera fila.
  */
 
 // ===== AJUSTES =====
-const VERSION_SCRIPT = '2.9.0'
+const VERSION_SCRIPT = '2.9.1'
+const MARCAS_RELEER_S = 15               // V2.9.1: la lista de marcas se vuelve a leer de la hoja cada 15 s
+const MARCAS_RECIENTES_S = 120           // V2.9.1: conteos recién guardados que se suman a la lista
 const ESPERA_CANDADO_MS = 45000          // cuánto espera un envío su turno (antes 25 s)
 const FILAS_REVISION_DUPLICADOS = 2000   // filas del final donde se busca un ID repetido
 const EN_CONTEO_TTL_S = 300              // "siendo contado": se quita solo a los 5 min sin señal
@@ -265,6 +275,9 @@ function doPost(e) {
         const marcas = {}
         lote.forEach(x => { if (x.id) marcas['ID_' + x.id] = '1' })
         cache.putAll(marcas, 21600) // recordar 6 h para reintentos
+        // V2.9.1: sumar al instante estos conteos a la lista de marcas "CONTADO"
+        const colCodigo = headers.findIndex(h => h.toString().trim() === "CODIGO")
+        agregarRecientes_(sheet.getSheetId(), lote.map(x => ({ id: x.id || '', codigo: colCodigo >= 0 ? String(x.row[colCodigo] || '') : '' })))
       }
       escrituraMs = Date.now() - tEscritura
       filasEnLote = lote.length
@@ -307,6 +320,11 @@ function doGet(e) {
   // NUEVO: ¿ya llegó este conteo? (para no reenviarlo a ciegas)
   if (p.accion === 'verificar') {
     return respuestaJSON_(verificarId_(p))
+  }
+
+  // NUEVO V2.9.1: marcas "CONTADO" livianas (ID + CÓDIGO) desde la memoria
+  if (p.accion === 'marcas') {
+    return respuestaJSON_(marcas_(p))
   }
 
   // Igual que antes (+ success y version para comprobar qué script está publicado)
@@ -444,6 +462,157 @@ function leerHoja_(p) {
   } catch (error) {
     return { success: false, message: "Error: " + error.toString() }
   }
+}
+
+// ================================================
+// NUEVO V2.9.1: MARCAS "CONTADO"  ?accion=marcas&hoja=INVENTARIO_MER
+// Devuelve [['ID_REGISTRO','CODIGO'], [id, codigo], ...] con TODAS las filas
+// (aunque la hoja tenga filtros), sin leer la hoja en cada consulta:
+//  - lista en memoria, releída de la hoja (solo 2 columnas) cada 15 s como máximo
+//  - + los conteos guardados en los últimos 2 min (al instante)
+// ================================================
+function marcas_(p) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet()
+    const sheet = p.hoja ? ss.getSheetByName(p.hoja.toString()) : null
+    if (!sheet || !/^INVENTARIO_(MER|FAR|BC)$/.test(sheet.getName())) return { success: false, message: 'Hoja de conteo no encontrada' }
+
+    const gid = sheet.getSheetId()
+    const claveIndice = 'IDX_' + gid
+    let indice = leerCacheGrande_(claveIndice)
+    const viejo = !indice || !indice.t || (Date.now() - indice.t) > MARCAS_RELEER_S * 1000
+
+    // Solo UNA ejecución relee la hoja a la vez; las demás usan la lista que hay
+    if (viejo && (reclamarRelectura_(gid) || !indice)) {
+      try {
+        indice = releerMarcas_(sheet)
+      } catch (err) {
+        soltarRelectura_(gid)
+        if (!indice) throw err // sin lista previa: la app usará la lectura pública
+        // con lista previa: se entrega esa (un poco más vieja) en vez de fallar
+      }
+    }
+
+    // Sumar los recién guardados que la lista todavía no tiene
+    const recientes = leerRecientes_(gid)
+    const ids = {}
+    indice.filas.forEach(f => { if (f[0]) ids[f[0]] = true })
+    const extra = recientes.filter(r => r.id && !ids[r.id]).map(r => [r.id, r.codigo])
+
+    return {
+      success: true,
+      hoja: sheet.getName(),
+      filas: [['ID_REGISTRO', 'CODIGO']].concat(indice.filas, extra),
+      actualizado: indice.t,
+      filtros: filtrosHojas_(ss)
+    }
+  } catch (error) {
+    return { success: false, message: "Error: " + error.toString() }
+  }
+}
+
+// Lee de la hoja SOLO las columnas ID_REGISTRO y CODIGO (todas las filas, aunque haya filtro)
+function releerMarcas_(sheet) {
+  const tLectura = Date.now()
+  const ultimaFila = sheet.getLastRow()
+  const headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getDisplayValues()[0]
+  const colId = headers.findIndex(h => h.toString().trim() === "ID_REGISTRO")
+  const colCodigo = headers.findIndex(h => h.toString().trim() === "CODIGO")
+  let filas = []
+  if (ultimaFila >= 2 && (colId >= 0 || colCodigo >= 0)) {
+    const n = ultimaFila - 1
+    const ids = colId >= 0 ? sheet.getRange(2, colId + 1, n, 1).getDisplayValues() : null
+    const cods = colCodigo >= 0 ? sheet.getRange(2, colCodigo + 1, n, 1).getDisplayValues() : null
+    for (let i = 0; i < n; i++) {
+      const id = ids ? String(ids[i][0]).trim() : ''
+      const cod = cods ? String(cods[i][0]).trim() : ''
+      if (id || cod) filas.push([id, cod])
+    }
+  }
+  const indice = { t: Date.now(), filas: filas }
+  guardarCacheGrande_('IDX_' + sheet.getSheetId(), indice, 21600)
+  // Los recién guardados ANTES de esta lectura ya están (o fueron borrados a mano)
+  limpiarRecientes_(sheet.getSheetId(), tLectura - 2000)
+  soltarRelectura_(sheet.getSheetId())
+  return indice
+}
+
+function reclamarRelectura_(gid) {
+  const l = candadoCola_()
+  try {
+    if (!l.tryLock(5000)) return false
+    const cache = CacheService.getScriptCache()
+    if (cache.get('IDXB_' + gid)) return false // otra ejecución ya la está releyendo
+    cache.put('IDXB_' + gid, '1', 20)
+    return true
+  } catch (err) {
+    return false
+  } finally {
+    try { l.releaseLock() } catch (err) {}
+  }
+}
+
+function soltarRelectura_(gid) {
+  try { CacheService.getScriptCache().remove('IDXB_' + gid) } catch (err) {}
+}
+
+function agregarRecientes_(gid, items) {
+  if (!items || !items.length) return
+  const l = candadoCola_()
+  try {
+    if (!l.tryLock(5000)) return
+    const cache = CacheService.getScriptCache()
+    let lista = []
+    try { lista = JSON.parse(cache.get('IDXR_' + gid) || '[]') } catch (err) { lista = [] }
+    const ahora = Date.now()
+    lista = lista.filter(r => ahora - r.t < MARCAS_RECIENTES_S * 1000)
+    items.forEach(x => lista.push({ t: ahora, id: x.id, codigo: x.codigo }))
+    cache.put('IDXR_' + gid, JSON.stringify(lista), MARCAS_RECIENTES_S + 60)
+  } catch (err) {
+  } finally {
+    try { l.releaseLock() } catch (err) {}
+  }
+}
+
+function leerRecientes_(gid) {
+  try {
+    const ahora = Date.now()
+    const lista = JSON.parse(CacheService.getScriptCache().get('IDXR_' + gid) || '[]')
+    return lista.filter(r => ahora - r.t < MARCAS_RECIENTES_S * 1000)
+  } catch (err) {
+    return []
+  }
+}
+
+function limpiarRecientes_(gid, antesDe) {
+  const l = candadoCola_()
+  try {
+    if (!l.tryLock(5000)) return
+    const cache = CacheService.getScriptCache()
+    let lista = []
+    try { lista = JSON.parse(cache.get('IDXR_' + gid) || '[]') } catch (err) { lista = [] }
+    const resto = lista.filter(r => r.t >= antesDe)
+    if (resto.length) cache.put('IDXR_' + gid, JSON.stringify(resto), MARCAS_RECIENTES_S + 60)
+    else cache.remove('IDXR_' + gid)
+  } catch (err) {
+  } finally {
+    try { l.releaseLock() } catch (err) {}
+  }
+}
+
+// ¿Qué hojas tienen un filtro aplicado? { gid: true/false }  (se revisa cada 60 s)
+function filtrosHojas_(ss) {
+  const cache = CacheService.getScriptCache()
+  try {
+    const guardado = cache.get('FILTROS')
+    if (guardado) return JSON.parse(guardado)
+  } catch (err) {}
+  const mapa = {}
+  try {
+    ss.getSheets().forEach(s => { mapa[String(s.getSheetId())] = !!s.getFilter() })
+    cache.put('FILTROS', JSON.stringify(mapa), 60)
+  } catch (err) {}
+  return mapa
 }
 
 function invalidarLectura_(sheet) {

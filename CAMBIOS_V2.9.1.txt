@@ -1,0 +1,57 @@
+APP_CONTEO2 V2.9.1
+ENVIOS RAPIDOS CON 1 O CON MUCHAS PERSONAS (LA HOJA YA NO QUEDA OCUPADA)
+
+BASE
+Esta version parte directamente de V2.9.0 (con la URL nueva del Apps Script).
+
+*** ORDEN PARA PUBLICAR ***
+1) PRIMERO Code.gs 2.9.1: pegar, guardar, Implementar > Gestionar
+   implementaciones > LAPIZ de la implementacion ACTUAL (la de la URL
+   ...AKfycbyCvhQ...) > Version: Nueva version > Implementar.
+   NO crear una implementacion nueva (cambiaria la URL).
+   Comprobar: la URL /exec debe mostrar "version":"2.9.1".
+2) DESPUES la app: Commit + Push origin. Cada celular: "Actualizar ahora".
+
+PROBLEMA
+Con UNA sola persona salia "Varias personas enviando · esperando turno" y
+"Reintentando 2 de 4" en casi todos los envios.
+Causa: en la 2.9.0 la app leia la hoja de conteos COMPLETA (14 columnas) a
+traves del Apps Script cada pocos segundos, y las de productos cada minuto.
+Google atiende las operaciones sobre un mismo archivo una tras otra: esas
+lecturas dejaban la hoja ocupada y el guardado esperaba detras (o Google
+respondia "Service Spreadsheets timed out" y habia que reintentar).
+Ademas el mensaje "Varias personas enviando" salia por tiempo (6 s), no
+porque hubiera varias personas.
+
+SOLUCION
+Code.gs 2.9.1 (sobre tu script; guardar, ACTUALIZAR y contraseña igual):
+- ?accion=marcas: lista liviana (ID + CODIGO) de TODAS las filas de la hoja
+  de conteo (aunque tenga filtro), guardada en la memoria del script:
+  * se actualiza AL INSTANTE en cada guardado;
+  * se relee de la hoja (solo esas 2 columnas) como maximo cada 15 s, sin
+    importar cuantos celulares consulten (capta borrados hechos a mano);
+  * si Google falla al releer, entrega la lista anterior (no borra marcas).
+- Avisa que hojas tienen un filtro aplicado.
+App 2.9.1:
+- Marcas CONTADO, aviso amarillo, contador y Resumen usan la lista liviana.
+- Reportes: hoja completa (como siempre, incluye filas ocultas por filtro).
+- Productos, usuarios y unidades: lectura publica (como hasta la 2.8.4);
+  solo si el servidor avisa que esa hoja tiene filtro se lee completa.
+- Login: si el usuario no aparece (filtro en USUARIOS), se busca en la hoja
+  completa.
+- Mensaje: "El servidor esta tardando un poco, sigue esperando..." (antes
+  decia "Varias personas enviando", aunque fuera una sola).
+
+SIMULACION REALISTA (la hoja atiende una operacion a la vez):
+- 1 persona: hoja ocupada 95% -> 19%; envio maximo 6.4 s -> 1.9 s.
+- 10 personas: 33 -> 128 envios; "Reintentando" 27% -> 0%; mitad 24 s -> 4 s.
+- 20 personas: "No enviado" 10 -> 0; 83 -> 193 envios; peor 223 s -> 21 s.
+- Sin duplicados en ningun caso.
+
+NOTA
+Un conteo BORRADO a mano en la hoja se refleja en la app en unos 15-25 s
+(antes ~10 s). Lo que se guarda desde la app aparece al instante.
+
+NO SE MODIFICO
+Formulario, envio en lote, "No enviado", aviso de codigo en conteo, filtros,
+busqueda, escaner, resumen, reportes, login, diseño.

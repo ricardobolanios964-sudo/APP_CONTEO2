@@ -18,7 +18,7 @@ const CONFIG = {
     GID_INVENTARIO_BC: '554330490',
     // Unidades de medida por producto (hoja UNIDADES_MEDIDA)
     GID_UNIDADES_MEDIDA: '1635530234',
-    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbzvRio8eWiZDgSK4izckpc-ZuUq1OQFVT2B3MMCl4mSstaI732_aAmSbki4DLGDbXmu/exec',
+    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbyCvhQVSSsv-qIWwa6leDoPt0Uwz0a4QpYlbc7bqNnDTILlLqjyQoGrX_E7zqRgsAzo/exec',
     
     // Rutas relativas (GitHub Pages sirve todo desde la raíz del repo)
     BASE_URL: '.',

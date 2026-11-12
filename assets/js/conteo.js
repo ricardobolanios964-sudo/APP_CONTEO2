@@ -748,8 +748,8 @@ class ConteoManager {
                 (n, total) => { if (subtituloEnvio) subtituloEnvio.textContent = `Reintentando (${n} de ${total})...`; },
                 (n, total) => {
                     if (subtituloEnvio) subtituloEnvio.textContent = n > 1
-                        ? `Reintentando (${n} de ${total}) · esperando turno...`
-                        : 'Varias personas enviando · esperando turno...';
+                        ? `Reintentando (${n} de ${total}) · el servidor está tardando...`
+                        : 'El servidor está tardando un poco, sigue esperando...';
                 }
             );
 
