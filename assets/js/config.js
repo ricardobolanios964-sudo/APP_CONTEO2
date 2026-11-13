@@ -18,13 +18,13 @@ const CONFIG = {
     GID_INVENTARIO_BC: '554330490',
     // Unidades de medida por producto (hoja UNIDADES_MEDIDA)
     GID_UNIDADES_MEDIDA: '1635530234',
-    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbyCvhQVSSsv-qIWwa6leDoPt0Uwz0a4QpYlbc7bqNnDTILlLqjyQoGrX_E7zqRgsAzo/exec',
+    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycby9oPNO8kbcYbzYkrziVEWa1-rT7GtEXfZJqUc15YiW6i8MOamYgeiRDdXnaEYgl3as/exec',
     
     // Rutas relativas (GitHub Pages sirve todo desde la raíz del repo)
     BASE_URL: '.',
     
     // Caché en localStorage, en segundos (igual que hacía PHP con archivos)
-    CACHE_TTL_OLIMPO: 60,        // igual que la renovación en vivo de la lista (antes 20: descargaba de más)
+    CACHE_TTL_OLIMPO: 20,
     CACHE_TTL_USUARIOS: 30,
     CACHE_TTL_CONTEOS: 30,
     CACHE_TTL_UNIDADES: 300,
@@ -34,8 +34,13 @@ const CONFIG = {
     LIVE_INTERVAL_CONTEOS: 10,   // marcas CONTADO, contador y Resumen
     LIVE_INTERVAL_OLIMPO: 60,    // lista de productos y existencia
 
-    // Leer las hojas a través del Apps Script (Code.gs 2.9.0): trae TODAS las
-    // filas aunque alguien deje un filtro aplicado en la hoja. Si el script no
-    // responde, la app usa sola la lectura pública de siempre.
+    // Lectura completa a través del Apps Script: SOLO para Reportes y para el
+    // login cuando un usuario no aparece (filtro en USUARIOS). Todo lo demás
+    // se lee por la vía pública, como en la 2.8.4.
     LEER_VIA_SCRIPT: true,
+
+    // V2.9.2: leer también la COPIA sin filtros de las hojas de conteo
+    // (pestañas ocultas _APP_ESPEJO_*, las crea el Apps Script). Así cuentan las
+    // filas que un filtro deja ocultas, sin cargar el Apps Script.
+    LEER_COPIA_SIN_FILTROS: true,
 };

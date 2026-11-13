@@ -32,7 +32,11 @@ const SheetsAPI = {
         const reciente = this._recienLeido[clave];
         if (!opciones.completo && reciente && Date.now() - reciente.ts < 4000) return reciente.data;
 
-        const promesa = this._fetchCSVReal(gid, ttlSeconds, opciones)
+        // Lectura normal: la hoja (como en la 2.8.4) + la COPIA sin filtros, juntas
+        const lectura = opciones.completo
+            ? this._fetchCSVReal(gid, ttlSeconds, opciones)
+            : this._leerConteoConCopia(gid, ttlSeconds);
+        const promesa = lectura
             .then(data => { this._recienLeido[clave] = { ts: Date.now(), data }; return data; })
             .finally(() => { delete this._enVuelo[clave]; });
         this._enVuelo[clave] = promesa;
@@ -90,17 +94,13 @@ const SheetsAPI = {
             `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/export?format=csv&gid=${gid}&cb=${Date.now()}`
         );
 
-        // 1) Lectura a través del Apps Script (ve TODAS las filas aunque la hoja
-        //    tenga un filtro; la exportación pública de Google NO las entrega).
-        //    V2.9.1: solo cuando hace falta, para no dejar la hoja ocupada:
-        //    - Conteos (marcas, aviso, contador, Resumen): lista LIVIANA (ID + CÓDIGO)
-        //      que el servidor tiene en memoria. No lee la hoja en cada consulta.
-        //    - Reportes, o una hoja que el servidor avisó que tiene filtro: completa.
-        //    - Productos, usuarios y unidades sin filtro: lectura pública (como antes).
+        // 1) V2.9.2: el Apps Script SOLO se usa para leer en casos puntuales
+        //    (Reportes y el login cuando un usuario no aparece), porque cada
+        //    lectura por el script compite con los guardados y con el aviso
+        //    "código en conteo". Todo lo demás se lee por la vía pública, como
+        //    en la 2.8.4 (las filas ocultas por filtros las aporta la COPIA).
         let filasScript = null;
-        if (esConteo && !opciones.completo) {
-            filasScript = await this._leerMarcasScript(nombreHoja);
-        } else if (opciones.completo || this._hojaConFiltro(gid)) {
+        if (opciones.completo) {
             filasScript = await this._leerViaScript(gid, nombreHoja, esConteo ? 20000 : 30000);
         }
         if (filasScript) {
@@ -879,64 +879,103 @@ const SheetsAPI = {
     },
 
     /**
-     * V2.9.1 - Marcas "CONTADO" livianas (?accion=marcas): ID + CÓDIGO de TODAS
-     * las filas de la hoja de conteo (aunque tenga filtro), servidas desde la
-     * memoria del Apps Script: no deja la hoja ocupada. También trae qué hojas
-     * tienen filtro aplicado. Devuelve las filas o null (se usa la lectura pública).
+     * V2.9.2 - Hoja de conteos + su COPIA sin filtros, juntas.
+     * La COPIA (pestaña oculta _APP_ESPEJO_MER/FAR/BC que crea el Apps Script)
+     * tiene ID + CÓDIGO de TODAS las filas mediante una fórmula, así que incluye
+     * las que un filtro deja ocultas. Las dos se leen por la vía pública (sin
+     * cargar el Apps Script). El resultado nunca tiene MENOS filas que la hoja
+     * sola: si la copia no existe o falla, queda exactamente como en la 2.8.4.
      */
-    async _leerMarcasScript(nombreHoja) {
-        if (!CONFIG.WEBAPP_URL || CONFIG.LEER_VIA_SCRIPT === false || !nombreHoja) return null;
-        if (this._marcasPausadaHasta && Date.now() < this._marcasPausadaHasta) return null;
+    async _leerConteoConCopia(gid, ttlSeconds) {
+        const nombreHoja = gid === CONFIG.GID_INVENTARIO_MER ? 'INVENTARIO_MER'
+            : gid === CONFIG.GID_INVENTARIO_FAR ? 'INVENTARIO_FAR' : 'INVENTARIO_BC';
+        const [hoja, copia] = await Promise.allSettled([
+            this._fetchCSVReal(gid, ttlSeconds),
+            this._leerCopia(nombreHoja),
+        ]);
+        const original = hoja.status === 'fulfilled' ? hoja.value : null;
+        const espejo = copia.status === 'fulfilled' ? copia.value : null;
+        if (!original) {
+            if (espejo) return espejo;      // la hoja no respondió pero la copia sí
+            throw hoja.reason;              // igual que antes: la pantalla conserva lo que ya mostraba
+        }
+        return this._unirConCopia(original, espejo);
+    },
 
-        const params = new URLSearchParams({ accion: 'marcas', hoja: nombreHoja, t: String(Date.now()) });
+    async _leerCopia(nombreHoja) {
+        if (CONFIG.LEER_COPIA_SIN_FILTROS === false) return null;
+        if (this._copiaPausadaHasta && Date.now() < this._copiaPausadaHasta) return null;
+        const sufijo = { INVENTARIO_MER: 'MER', INVENTARIO_FAR: 'FAR', INVENTARIO_BC: 'BC' }[nombreHoja];
+        if (!sufijo) return null;
+
+        const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&headers=1` +
+            `&sheet=${encodeURIComponent('_APP_ESPEJO_' + sufijo)}&tq=${encodeURIComponent('select *')}&cb=${Date.now()}`;
         const control = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const limite = control ? setTimeout(() => control.abort(), 12000) : null;
+        const limite = control ? setTimeout(() => control.abort(), 15000) : null;
         try {
-            const r = await fetch(`${CONFIG.WEBAPP_URL}?${params.toString()}`, {
-                method: 'GET', cache: 'no-store', signal: control ? control.signal : undefined,
-            });
-            const texto = await r.text();
-            let data = null;
-            try { data = JSON.parse(texto); } catch (e) { /* respuesta no JSON */ }
-
-            if (data && data.success && Array.isArray(data.filas)) {
-                this._fallasMarcas = 0;
-                if (data.filtros && typeof data.filtros === 'object') this._guardarFiltros(data.filtros);
-                return data.filas.map(f => (Array.isArray(f) ? f : []).map(v => (v === null || v === undefined ? '' : String(v))));
-            }
-            if (data && data.status === 'OK' && !('filas' in data)) {
-                // El Apps Script publicado todavía no tiene esta función: no insistir por 10 min
-                this._marcasPausadaHasta = Date.now() + 10 * 60 * 1000;
-                console.warn('Marcas livianas no disponibles: publica Code.gs 2.9.1. Se usa la lectura pública.');
-                return null;
+            const r = await fetch(url, { cache: 'no-store', signal: control ? control.signal : undefined });
+            const texto = r.ok ? await r.text() : '';
+            const limpio = texto.trim().toLowerCase();
+            if (texto && !limpio.startsWith('<!doctype') && !limpio.startsWith('<html')) {
+                const filas = this._parseCSV(texto);
+                const h = (filas[0] || []).map(x => this._normTexto(x));
+                // Se valida que de verdad sea la copia (y no otra pestaña)
+                if (h[0] === 'ID_REGISTRO' && h[1] === 'CODIGO' && h[2] === '__ESPEJO_APP_CONTEO2__') return filas;
             }
         } catch (e) {
-            /* sin respuesta a tiempo: usar la lectura pública */
+            /* sin respuesta a tiempo */
         } finally {
             if (limite) clearTimeout(limite);
         }
-        // Si falla varias veces seguidas, usar la lectura pública durante 1 min
-        this._fallasMarcas = (this._fallasMarcas || 0) + 1;
-        if (this._fallasMarcas >= 2) {
-            this._marcasPausadaHasta = Date.now() + 60 * 1000;
-            this._fallasMarcas = 0;
-        }
+        // La copia aún no existe o no respondió: no insistir por 5 min (se usa solo la hoja)
+        this._copiaPausadaHasta = Date.now() + 5 * 60 * 1000;
         return null;
     },
 
-    /** Qué hojas tienen un filtro aplicado (lo avisa el servidor; se recuerda 10 min). */
-    _guardarFiltros(filtros) {
-        this._filtros = { ts: Date.now(), mapa: filtros };
-        try { localStorage.setItem('app_conteo2_filtros', JSON.stringify(this._filtros)); } catch (e) {}
+    _normTexto(v) {
+        return String(v === null || v === undefined ? '' : v)
+            .split(String.fromCharCode(0xFEFF)).join('')
+            .split(String.fromCharCode(0xA0)).join(' ')
+            .trim().toUpperCase();
     },
 
-    _hojaConFiltro(gid) {
-        if (!this._filtros) {
-            try { this._filtros = JSON.parse(localStorage.getItem('app_conteo2_filtros') || 'null'); } catch (e) { this._filtros = null; }
+    /** Agrega a la hoja las filas que solo están en la copia (ocultas por un filtro). */
+    _unirConCopia(original, copia) {
+        if (!copia || !original || !original.length) return original;
+        const headers = original[0].map(x => this._normTexto(x));
+        const colCodigo = headers.findIndex(h => h === 'CODIGO' || h === 'CÓDIGO' || h === 'CODIGO PRODUCTO' || h === 'CÓDIGO PRODUCTO');
+        if (colCodigo === -1) return original;
+
+        const idsHoja = new Set();
+        const sinIdHoja = new Map();
+        for (const r of original.slice(1)) {
+            const id = String(r[0] || '').trim();
+            if (id) idsHoja.add(id);
+            else {
+                const cod = this._normTexto(r[colCodigo]);
+                if (cod) sinIdHoja.set(cod, (sinIdHoja.get(cod) || 0) + 1);
+            }
         }
-        const f = this._filtros;
-        if (!f || !f.mapa || Date.now() - f.ts > 10 * 60 * 1000) return false;
-        return f.mapa[String(gid)] === true;
+
+        const extras = [];
+        const sinIdCopia = new Map();
+        const fila = (id, cod) => { const f = new Array(original[0].length).fill(''); f[0] = id; f[colCodigo] = cod; return f; };
+        for (const r of copia.slice(1)) {
+            const id = String(r[0] || '').trim();
+            const cod = String(r[1] || '').trim();
+            if (!id && !cod) continue;
+            if (id) {
+                if (!idsHoja.has(id)) { idsHoja.add(id); extras.push(fila(id, cod)); }
+            } else {
+                const k = this._normTexto(cod);
+                sinIdCopia.set(k, { n: (sinIdCopia.has(k) ? sinIdCopia.get(k).n : 0) + 1, cod });
+            }
+        }
+        for (const [k, v] of sinIdCopia) {
+            for (let i = sinIdHoja.get(k) || 0; i < v.n; i++) extras.push(fila('', v.cod));
+        }
+        if (extras.length) console.info(`APP_CONTEO2: ${extras.length} conteos ocultos por un filtro en la hoja se agregaron desde la copia.`);
+        return extras.length ? original.concat(extras) : original;
     },
 
     /** Valida y guarda en caché las filas leídas (misma regla para ambas lecturas). */

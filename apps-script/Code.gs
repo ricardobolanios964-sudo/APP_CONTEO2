@@ -36,15 +36,26 @@
  *    se actualiza al instante en cada guardado y se relee de la hoja (solo esas
  *    2 columnas, y aunque haya filtros) como máximo cada 15 s, sin importar
  *    cuántos celulares consulten. También avisa qué hojas tienen filtro.
+ *    (La app 2.9.2 ya no la usa; se mantiene para celulares sin actualizar.)
+ *
+ * 6) NUEVO (V2.9.2) - COPIA SIN FILTROS (pestañas ocultas _APP_ESPEJO_MER/FAR/BC)
+ *    Una fórmula copia ID_REGISTRO y CODIGO de TODAS las filas de cada hoja de
+ *    conteo (una fórmula sí ve las filas que un filtro oculta). La app la lee
+ *    por la vía pública, igual que la hoja, SIN cargar este script.
+ *    Se crea sola (primer guardado o al abrir la URL /exec) y se revisa cada
+ *    10 min. Si alguien la borra, se vuelve a crear. No la modifiques.
  *
  * IMPORTANTE: la hoja USUARIOS debe tener columnas "USUARIO" y
  * "CONTRASEÑA" (con eñe) en la primera fila.
  */
 
 // ===== AJUSTES =====
-const VERSION_SCRIPT = '2.9.1'
+const VERSION_SCRIPT = '2.9.2'
 const MARCAS_RELEER_S = 15               // V2.9.1: la lista de marcas se vuelve a leer de la hoja cada 15 s
 const MARCAS_RECIENTES_S = 120           // V2.9.1: conteos recién guardados que se suman a la lista
+// V2.9.2: COPIA sin filtros de cada hoja de conteo (pestaña oculta con fórmula)
+const ESPEJOS = { INVENTARIO_MER: '_APP_ESPEJO_MER', INVENTARIO_FAR: '_APP_ESPEJO_FAR', INVENTARIO_BC: '_APP_ESPEJO_BC' }
+const MARCA_ESPEJO = '__ESPEJO_APP_CONTEO2__'
 const ESPERA_CANDADO_MS = 45000          // cuánto espera un envío su turno (antes 25 s)
 const FILAS_REVISION_DUPLICADOS = 2000   // filas del final donde se busca un ID repetido
 const EN_CONTEO_TTL_S = 300              // "siendo contado": se quita solo a los 5 min sin señal
@@ -135,6 +146,9 @@ function doPost(e) {
     const lastCol = sheet.getLastColumn()
     const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
 
+    // V2.9.2: que exista la COPIA sin filtros (revisa como mucho cada 10 min)
+    asegurarEspejo_(SpreadsheetApp.getActiveSpreadsheet(), sheet, headers, false)
+
     // Posible reintento: ¿ya está en la hoja? (solo lectura, no ocupa el candado)
     // En el PRIMER envío de la app nueva no hace falta y se ahorra tiempo.
     if (idRegistro && intento !== 1 && data.ACCION !== "ACTUALIZAR" && idEnHoja_(sheet, headers, idRegistro)) {
@@ -200,6 +214,7 @@ function doPost(e) {
     const esperaMs = Date.now() - tEspera
     let escrituraMs = 0
     let filasEnLote = 0
+    let hojaCrecio = false
 
     try {
       // Si se pide ACTUALIZAR (mismo código + misma fecha de vencimiento),
@@ -269,7 +284,7 @@ function doPost(e) {
         // Si la hoja no tiene filas vacías suficientes al final, agregarlas
         // (appendRow lo hacía solo; escribir en bloque no)
         const faltan = desde + filas.length - 1 - sheet.getMaxRows()
-        if (faltan > 0) sheet.insertRowsAfter(sheet.getMaxRows(), faltan)
+        if (faltan > 0) { sheet.insertRowsAfter(sheet.getMaxRows(), faltan); hojaCrecio = true }
         sheet.getRange(desde, 1, filas.length, ancho).setValues(filas) // todas de una vez
         SpreadsheetApp.flush() // asegurar que quedaron escritas antes de responder
         const marcas = {}
@@ -287,6 +302,7 @@ function doPost(e) {
     }
 
     invalidarLectura_(sheet) // la app verá las filas nuevas en la siguiente lectura
+    if (hojaCrecio) asegurarEspejo_(SpreadsheetApp.getActiveSpreadsheet(), sheet, headers, true) // la copia crece igual
 
     const tiempos = { esperaTurnoMs: esperaMs, escrituraMs: escrituraMs, filasEnLote: filasEnLote, totalMs: Date.now() - t0 }
     console.log(JSON.stringify({ evento: 'GUARDADO', id: idRegistro, hoja: sheetName, intento: intento, tiempos: tiempos }))
@@ -328,8 +344,20 @@ function doGet(e) {
   }
 
   // Igual que antes (+ success y version para comprobar qué script está publicado)
+  // V2.9.2: al abrir la URL /exec también se crean/revisan las copias sin filtros
+  const espejos = {}
+  let hojaConectada = null // V2.9.2: diagnóstico - ¿este script está ligado a la hoja de cálculo?
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet()
+    if (ss) {
+      hojaConectada = ss.getName()
+      Object.keys(ESPEJOS).forEach(n => { const h = ss.getSheetByName(n); espejos[n] = h ? asegurarEspejo_(ss, h, null, true) : false })
+    }
+  } catch (err) {}
   return ContentService.createTextOutput(
-    JSON.stringify({ status: "OK", message: "Servicio funcionando correctamente", success: true, version: VERSION_SCRIPT })
+    JSON.stringify({ status: "OK", message: "Servicio funcionando correctamente", success: true, version: VERSION_SCRIPT,
+      hoja_conectada: hojaConectada || 'NO - este script NO está ligado a la hoja (los conteos no se pueden guardar)',
+      copias_sin_filtros: espejos })
   ).setMimeType(ContentService.MimeType.JSON)
 }
 
@@ -613,6 +641,55 @@ function filtrosHojas_(ss) {
     cache.put('FILTROS', JSON.stringify(mapa), 60)
   } catch (err) {}
   return mapa
+}
+
+// ================================================
+// NUEVO V2.9.2: COPIA SIN FILTROS de una hoja de conteo
+// Pestaña oculta con UNA fórmula que trae ID_REGISTRO y CODIGO de TODAS las
+// filas (como texto). Nunca frena un guardado: si algo falla, solo se avisa.
+// ================================================
+function asegurarEspejo_(ss, sheet, headers, forzar) {
+  const nombre = ESPEJOS[sheet.getName()]
+  if (!nombre) return false
+  const cache = CacheService.getScriptCache()
+  const clave = 'ESP_OK_' + sheet.getSheetId()
+  try {
+    if (!forzar && cache.get(clave)) return true
+    const hs = headers || sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0]
+    const colId = hs.findIndex(h => h.toString().trim() === "ID_REGISTRO")
+    const colCod = hs.findIndex(h => h.toString().trim() === "CODIGO")
+    if (colId < 0 || colCod < 0) return false
+    const ref = c => "'" + sheet.getName() + "'!" + letraColumna_(c + 1) + ":" + letraColumna_(c + 1)
+    const formula = "={ARRAYFORMULA(TO_TEXT(" + ref(colId) + ")),ARRAYFORMULA(TO_TEXT(" + ref(colCod) + "))}"
+
+    let esp = ss.getSheetByName(nombre)
+    if (!esp) {
+      esp = ss.insertSheet(nombre, ss.getNumSheets())
+      try { esp.hideSheet() } catch (err) {}
+      try { esp.protect().setDescription('Copia automática de APP_CONTEO2: no modificar').setWarningOnly(true) } catch (err) {}
+    }
+    // La copia necesita al menos tantas filas como la hoja original
+    const faltanFilas = sheet.getMaxRows() - esp.getMaxRows()
+    if (faltanFilas > 0) esp.insertRowsAfter(esp.getMaxRows(), faltanFilas)
+    if (esp.getMaxColumns() < 3) esp.insertColumnsAfter(esp.getMaxColumns(), 3 - esp.getMaxColumns())
+    if (esp.getRange(1, 1).getFormula() !== formula) esp.getRange(1, 1).setFormula(formula)
+    if (String(esp.getRange(1, 3).getValue()) !== MARCA_ESPEJO) esp.getRange(1, 3).setValue(MARCA_ESPEJO)
+    cache.put(clave, '1', 600)
+    return true
+  } catch (err) {
+    console.warn(JSON.stringify({ evento: 'COPIA_SIN_FILTROS', hoja: sheet.getName(), error: err.toString() }))
+    return false
+  }
+}
+
+function letraColumna_(n) {
+  let s = ''
+  while (n > 0) {
+    const m = (n - 1) % 26
+    s = String.fromCharCode(65 + m) + s
+    n = Math.floor((n - 1) / 26)
+  }
+  return s
 }
 
 function invalidarLectura_(sheet) {

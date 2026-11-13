@@ -1213,10 +1213,10 @@ class ConteoManager {
             const r = await SheetsAPI.enConteo('marcar', this.tipo, codigo, Auth.getUsuarioActual());
             if (token !== this._ecToken) return; // ya se cerró o se abrió otro producto
             if (!r) {
-                // El servidor no respondió (arranque lento de Google, señal débil o
-                // servidor muy ocupado): un solo reintento a los 5 s, para no
-                // competir con los envíos de conteos cuando hay mucha gente.
-                if (reintento < 1) setTimeout(() => enviar(reintento + 1), 5000);
+                // El servidor no respondió (arranque lento de Google, señal débil):
+                // reintentar pronto para no perder el aviso ni dejar de figurar.
+                // (V2.9.2: igual que en la 2.8.4, que funcionaba bien)
+                if (reintento < 2) setTimeout(() => enviar(reintento + 1), 3000);
                 return;
             }
             // La VENTANA solo sale al abrir el producto (si ya alguien lo estaba contando).

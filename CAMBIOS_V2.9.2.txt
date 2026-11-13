@@ -1,0 +1,46 @@
+APP_CONTEO2 V2.9.2
+VUELVE LO QUE FUNCIONABA (2.8.4) + SOLO LOS ARREGLOS PEDIDOS
+
+BASE
+Esta version parte de V2.9.1. Code.gs 2.9.2 parte de tu script publicado.
+
+QUE SE ROMPIO EN LA 2.9.0 / 2.9.1 Y POR QUE
+- Para resolver lo del filtro, la app empezo a LEER las hojas a traves del
+  Apps Script (2.9.0: hoja completa; 2.9.1: "marcas"). En la 2.8.4 el script
+  solo recibia guardados y el aviso "codigo en conteo"; en la 2.9.1 recibia
+  64% mas llamadas (4.9 por conteo en vez de 3.0). Todo compite por el mismo
+  script (Google permite 30 a la vez) y por la misma hoja: el aviso llegaba
+  tarde o se perdia (ademas en la 2.9.0 se le quito un reintento) y los
+  guardados esperaban.
+- Cada implementacion NUEVA cambia la URL. Celulares con versiones distintas
+  usan URLs distintas; si una implementacion quedo en OTRO proyecto de Apps
+  Script, el aviso no se ve entre celulares y los guardados fallan.
+
+QUE HACE LA 2.9.2
+App:
+- Lecturas: otra vez por la via publica, como en la 2.8.4 (marcas, aviso
+  amarillo, contador, Resumen, productos, usuarios, unidades). 3.0 llamadas
+  al script por conteo, igual que la 2.8.4.
+- Aviso "codigo en conteo": igual que la 2.8.4 (2 reintentos a los 3 s).
+- Busqueda: igual que la 2.8.4 (CACHE_TTL_OLIMPO 20).
+- FILTRO: la app lee tambien la COPIA sin filtros (pestaña oculta
+  _APP_ESPEJO_MER/FAR/BC, por la via publica) y la junta con la hoja.
+  Nunca puede dar MENOS que la 2.8.4: si la copia falta o falla, queda igual.
+- Reportes y login (si el usuario no aparece): hoja completa por el script.
+- Se MANTIENE de la 2.9.x: envio con confirmacion real, reintentos con el
+  mismo ID, "¿ya llego?" antes de reenviar, "No enviado" con datos guardados,
+  y el mensaje "El servidor esta tardando..." (ya no "Varias personas").
+Code.gs 2.9.2:
+- Igual que 2.9.1 (escritura en lote, sin duplicados, candado 45 s).
+- NUEVO: crea y mantiene la COPIA sin filtros (una formula; oculta y
+  protegida). Se crea en el primer guardado o al abrir la URL /exec.
+- NUEVO: /exec dice a que hoja esta ligado el script (diagnostico).
+
+SIMULACION (hoja que atiende una operacion a la vez, lecturas lentas):
+- 1 persona: envio 1.9 s; aviso 11 de 11.
+- 10 personas: 133 envios, 0 fallas, 0 reintentos; aviso 15 de 15.
+- 20 personas: 201 envios, 0 fallas, 0 reintentos, maximo 12 s; aviso 11 de 11.
+
+PUBLICAR (ver mensaje): primero Code.gs en el proyecto LIGADO A LA HOJA
+(Extensiones > Apps Script), editando la implementacion existente; despues la
+app; despues "Actualizar ahora" en TODOS los celulares.
